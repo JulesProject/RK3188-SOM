@@ -630,7 +630,7 @@ struct rk29fb_info lcdc0_screen_info = {
 #if defined(CONFIG_LCDC1_RK3066B) || defined(CONFIG_LCDC1_RK3188)
 struct rk29fb_info lcdc1_screen_info = {
 	#if defined(CONFIG_RK_HDMI)
-	.prop		= PRMRY,	//extend display device
+	.prop		= PRMRY,	//primary display device
 	.io_init   = rk_fb_io_init,
 	.io_disable = rk_fb_io_disable,
 	.io_enable = rk_fb_io_enable,
@@ -1507,6 +1507,34 @@ static int rk_platform_add_display_devices(void)
 	return 0;
 	
 }
+
+#ifdef CONFIG_RK_HDMI
+static struct rkdisplay_platform_data hdmi_data = {
+	.property 		= DISPLAY_MAIN,
+	.video_source 	= DISPLAY_SOURCE_LCDC1,
+	.io_pwr_pin 	= INVALID_GPIO,
+	.io_reset_pin 	= RK30_PIN3_PB2,
+};
+#endif
+#if defined(CONFIG_RK1000_TVOUT) || defined(CONFIG_MFD_RK1000)
+static struct rkdisplay_platform_data tv_data = {
+	.property 		= DISPLAY_MAIN,
+	.video_source 	= DISPLAY_SOURCE_LCDC0,
+	.io_pwr_pin 	= INVALID_GPIO,
+	.io_reset_pin 	= RK30_PIN3_PD7,
+	.io_switch_pin	= INVALID_GPIO,
+};
+#endif
+
+#if defined (CONFIG_RK_VGA)
+static struct rkdisplay_platform_data vga_data = {
+	.property 		= DISPLAY_MAIN,
+	.video_source 	= DISPLAY_SOURCE_LCDC0,
+	.io_pwr_pin 	= INVALID_GPIO,
+	.io_reset_pin 	= INVALID_GPIO,
+	.io_switch_pin	= RK30_PIN0_PC7,
+};
+#endif
 
 // i2c
 #ifdef CONFIG_I2C0_RK30
