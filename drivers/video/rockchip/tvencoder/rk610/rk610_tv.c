@@ -21,20 +21,32 @@
 #include <linux/console.h>
 #include <asm/uaccess.h>
 #include "rk610_tv.h"
-#include "../../rk29_fb.h"
+#include "../../../rk29_fb.h"
 
 #define DRV_NAME "rk610_tvout"
 #define RK610_I2C_RATE     100*1000
 
-volatile int rk610_tv_output_status = RK610_TVOUT_DEAULT;
-static struct i2c_client *rk610_tv_i2c_client = NULL;
+struct rk610 rk610;
+
+#define VIDEO_SWITCH_CVBS		GPIO_LOW
+#define VIDEO_SWITCH_OTHER		GPIO_HIGH
+
+#ifdef CONFIG_ARCH_RK29
+extern int FB_Switch_Screen( struct rk29fb_screen *screen, u32 enable );
+#else
+#include <linux/rk_fb.h>
+static int FB_Switch_Screen( struct rk29fb_screen *screen, u32 enable )
+{
+	return rk_fb_switch_screen(screen, enable , rk610.video_source);
+}
+#endif
 
 int rk610_tv_wirte_reg(u8 reg, u8 data)
 {
     int ret;
-	if(rk610_tv_i2c_client == NULL)
+	if(rk610.client == NULL)
 		return -1;
-    ret = i2c_master_reg8_send(rk610_tv_i2c_client, reg, &data, 1, RK610_I2C_RATE);
+    ret = i2c_master_reg8_send(rk610.client, reg, &data, 1, RK610_I2C_RATE);
 	if (ret > 0)
 		ret = 0;
 	return ret;
@@ -80,7 +92,7 @@ int rk610_switch_fb(const struct fb_videomode *modedb, int tv_mode)
 	else
 		screen->pin_vsync = 0;	
 	screen->pin_den = 0;
-	screen->pin_dclk = 0;
+	screen->pin_dclk = 1;
 
 	/* Swap rule */
     screen->swap_rb = 0;
@@ -120,49 +132,38 @@ int rk610_switch_fb(const struct fb_videomode *modedb, int tv_mode)
    		}
    		break;
    	}
-   	rk610_tv_output_status = tv_mode;
+   	rk610.mode = tv_mode;
    	FB_Switch_Screen(screen, 1);
    	kfree(screen);
+   	
+   	if(rk610.io_switch_pin != INVALID_GPIO) {
+   		if(tv_mode < TVOUT_YPbPr_720x480p_60)
+   			gpio_direction_output(rk610.io_switch_pin, VIDEO_SWITCH_CVBS);
+   		else
+   			gpio_direction_output(rk610.io_switch_pin, VIDEO_SWITCH_OTHER);
+   	}
 	return 0;
 }
 
 int rk610_tv_standby(int type)
 {
 	int ret;
-
-	switch(type)
-	{
-		#ifdef CONFIG_RK610_TVOUT_CVBS
-		case RK610_TVOUT_CVBS:
-			if(rk610_cvbs_monspecs.enable == 0)
-				return 0;
-			#ifdef CONFIG_RK610_TVOUT_YPbPr
-			if(rk610_ypbpr_monspecs.enable == 1)
-				return 0;
-			#endif
-			break;
-		#endif
-		#ifdef CONFIG_RK610_TVOUT_YPbPr
-		case RK610_TVOUT_YPBPR:
-			if(rk610_ypbpr_monspecs.enable == 0)
-				return 0;
-			#ifdef CONFIG_RK610_TVOUT_CVBS
-			if(rk610_cvbs_monspecs.enable == 1)
-				return 0;
-			#endif
-			break;
-		#endif
-		default:
-			break;
-	}
-
+	int ypbpr = 0, cvbs = 0;
+	
+	if(rk610.ypbpr)
+		ypbpr = rk610.ypbpr->enable;
+	if(rk610.cvbs)
+		cvbs = rk610.cvbs->enable;
+	if(cvbs || ypbpr)
+		return 0;
+	
 	ret = rk610_tv_wirte_reg(TVE_POWERCR, 0);
 	if(ret < 0){
 		printk("[%s] rk610_tv_wirte_reg err!\n", __FUNCTION__);
 		return ret;
 	}
 	
-	ret = rk610_control_send_byte(RK610_CONTROL_REG_TVE_CON, 0);
+	ret = rk610_control_send_byte(TVE_CON, 0);
 	if(ret < 0){
 		printk("[%s] rk610_control_send_byte err!\n", __FUNCTION__);
 		return ret;
@@ -170,28 +171,75 @@ int rk610_tv_standby(int type)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void rk610_early_suspend(struct early_suspend *h)
+{
+	printk("rk610 enter early suspend");
+	if(rk610.ypbpr)
+		rk610.ypbpr->ddev->ops->setenable(rk610.ypbpr->ddev, 0);
+	if(rk610.cvbs)
+		rk610.cvbs->ddev->ops->setenable(rk610.cvbs->ddev, 0);
+	return;
+}
+
+static void rk610_early_resume(struct early_suspend *h)
+{
+	printk("rk610 exit early resume");
+	if( rk610.cvbs && (rk610.mode < TVOUT_YPbPr_720x480p_60) ) {
+		rk_display_device_enable((rk610.cvbs)->ddev);
+	}
+	else if( rk610.ypbpr && (rk610.mode > TVOUT_CVBS_PAL) ) {
+		rk_display_device_enable((rk610.ypbpr)->ddev);
+	}
+	return;
+}
+#endif
+
 static int rk610_tv_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
 	int rc = 0;
+	struct rkdisplay_platform_data *tv_data;
 	
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		rc = -ENODEV;
 		goto failout;
 	}
-	rk610_tv_i2c_client = client;
-
+	memset(&rk610, 0, sizeof(struct rk610));
+	rk610.io_switch_pin = INVALID_GPIO;
+	rk610.client = client;
+	if(client->dev.platform_data) {
+		tv_data = client->dev.platform_data;
+		rk610.video_source = tv_data->video_source;
+		rk610.property = tv_data->property;
+	}
+	else {
+		rk610.video_source = DISPLAY_SOURCE_LCDC0;
+		rk610.property = DISPLAY_MAIN;
+	}
+	if(rk610.io_switch_pin != INVALID_GPIO) {
+		rc = gpio_request(rk610.io_switch_pin, NULL);
+		if(rc) {
+			gpio_free(rk610.io_switch_pin);
+			printk(KERN_ERR "RK610 request video switch gpio error\n");
+			return -1;
+		}
+	}
+	
+	rk610.mode = RK610_TVOUT_DEAULT;
+	
 #ifdef CONFIG_RK610_TVOUT_YPbPr
 	rk610_register_display_ypbpr(&client->dev);
-	if(rk610_tv_output_status > TVOUT_CVBS_PAL)
-		rk_display_device_enable(rk610_ypbpr_monspecs.ddev);
 #endif
 
 #ifdef CONFIG_RK610_TVOUT_CVBS
 	rk610_register_display_cvbs(&client->dev);
-	if(rk610_tv_output_status < TVOUT_YPbPr_720x480p_60)
-		rk_display_device_enable(rk610_cvbs_monspecs.ddev);
 #endif
-	
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	rk610.early_suspend.suspend = rk610_early_suspend;
+	rk610.early_suspend.resume = rk610_early_resume;
+	rk610.early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB - 10;
+	register_early_suspend(&(rk610.early_suspend));
+#endif
     printk(KERN_INFO "rk610_tv ver 1.0 probe ok\n");
     return 0;
 failout:
