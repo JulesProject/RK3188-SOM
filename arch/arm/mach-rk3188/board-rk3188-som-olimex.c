@@ -191,14 +191,14 @@ static struct spi_board_info board_spi_devices[] = {
 *	rk30  backlight
 ************************************************************/
 #ifdef CONFIG_BACKLIGHT_RK29_BL
-#define PWM_ID            3
+#define PWM_ID            1
 #define PWM_MODE          PWM3
 #define PWM_EFFECT_VALUE  0
 
 #define LCD_DISP_ON_PIN
 
 #ifdef  LCD_DISP_ON_PIN
-#define BL_EN_PIN         RK30_PIN0_PA2
+#define BL_EN_PIN         INVALID GPIO
 #define BL_EN_VALUE       GPIO_HIGH
 #endif
 static int rk29_backlight_io_init(void)
@@ -544,19 +544,12 @@ static struct rk_hdmi_platform_data rk_hdmi_pdata = {
 
 #ifdef CONFIG_FB_ROCKCHIP
 
-#ifdef CONFIG_MACH_RK3188_RADXA_ROCK_PRO
-#define LCD_CS_PIN         RK30_PIN2_PD6
-#define LCD_CS_VALUE       GPIO_HIGH
-
-#define LCD_EN_PIN         RK30_PIN0_PB0
-#define LCD_EN_VALUE       GPIO_LOW
-#else
 #define LCD_CS_PIN         INVALID_GPIO
 #define LCD_CS_VALUE       GPIO_HIGH
 
-#define LCD_EN_PIN         INVALID_GPIO
-#define LCD_EN_VALUE       GPIO_LOW
-#endif /* CONFIG_MACH_RK3188_RADXA_ROCK_PRO */
+#define LCD_EN_PIN         RK30_PIN3_PD7
+#define LCD_EN_VALUE       GPIO_HIGH
+
 
 static int rk_fb_io_init(struct rk29_fb_setting_info *fb_setting)
 {
@@ -620,8 +613,7 @@ static int rk_fb_io_enable(void)
 
 #if defined(CONFIG_LCDC0_RK3066B) || defined(CONFIG_LCDC0_RK3188)
 struct rk29fb_info lcdc0_screen_info = {
-       .prop           = PRMRY,       //primary display device
-       //.prop           = EXTEND,      //extend display device
+       .prop           = EXTEND,      //extend display device
        .lcd_info  = NULL,
        .set_screen_info = set_lcd_info,
 };
