@@ -119,4 +119,10 @@ config LOGO_LINUX_BMP_ANDROID
         bool "Bmp logo android"
         depends on  LOGO_LINUX_BMP
         default n
+        
+config LOGO_OLIMEX_CLUT224
+	bool "224-color Olimex Linux logo"
+	depends on LOGO
+	default n
+	
 endif # LOGO

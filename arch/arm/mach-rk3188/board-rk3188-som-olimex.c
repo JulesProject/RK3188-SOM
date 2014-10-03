@@ -198,7 +198,7 @@ static struct spi_board_info board_spi_devices[] = {
 #define LCD_DISP_ON_PIN
 
 #ifdef  LCD_DISP_ON_PIN
-#define BL_EN_PIN         INVALID GPIO
+#define BL_EN_PIN         INVALID_GPIO
 #define BL_EN_VALUE       GPIO_HIGH
 #endif
 static int rk29_backlight_io_init(void)
@@ -2141,7 +2141,7 @@ static struct i2c_board_info __initdata i2c3_info[] = {
 		I2C_BOARD_INFO("ar1020-i2c", 0x4d),
 		.irq	=	RK30_PIN1_PB7,
 },
-
+#endif
 };
 #endif
 
