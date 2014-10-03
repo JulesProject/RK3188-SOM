@@ -769,29 +769,22 @@ static struct platform_device rk29_device_vibrator = {
 #ifdef CONFIG_LEDS_GPIO_PLATFORM
 static struct gpio_led rk29_leds[] = {
 	{
-		.name = "button-backlight",
-		.gpio = INVALID_GPIO,
-		.default_trigger = "timer",
-		.active_low = 0,
-		.retain_state_suspended = 0,
-		.default_state = LEDS_GPIO_DEFSTATE_OFF,
-	},
-	{
-		.name = "green",
+		.name = "led1",
 		.default_trigger = "heartbeat",
 		.gpio = RK30_PIN0_PB4,
 		.active_low = 1,
 	},
 	{
-		.name = "blue",
+		.name = "led2",
 		.default_trigger = "mmc0",
 		.gpio = RK30_PIN0_PB6,
 		.active_low = 1,
 	},
 	{
-		.name = "red",
-		.gpio = RK30_PIN0_PB7,
-		.default_state = LEDS_GPIO_DEFSTATE_ON,
+		.name = "led3",
+		.default_trigger = "heartbeat",
+		.gpio = RK30_PIN3_PD5,
+		.active_low = 1,
 	},
 };
 
