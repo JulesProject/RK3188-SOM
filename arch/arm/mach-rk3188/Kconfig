@@ -26,6 +26,9 @@ config MACH_RK3188_RADXA_ROCK_PRO
 
 endif
 
+config MACH_RK3188_SOM_OLIMEX
+	bool "RK3188 Olimex System-on-Module board"
+
 config MACH_RK3188_TB
 	bool "RK3188 Top Board"
 
