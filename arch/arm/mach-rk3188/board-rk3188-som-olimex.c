@@ -2336,9 +2336,14 @@ static void __init machine_rk30_board_init(void)
 	gpio_direction_output(POWER_ON_PIN, GPIO_HIGH);
 	
 	pm_power_off = rk30_pm_power_off;
+	gpio_direction_output(POWER_ON_PIN, GPIO_HIGH);
 	
-        gpio_direction_output(POWER_ON_PIN, GPIO_HIGH);
 
+	/*
+	 * Enable power on USB-HUB
+	 */
+	gpio_request(RK30_PIN0_PA0, "usb_en");
+	gpio_direction_output(RK30_PIN0_PA0, GPIO_HIGH);
 
 	rk30_i2c_register_board_info();
 	spi_register_board_info(board_spi_devices, ARRAY_SIZE(board_spi_devices));
