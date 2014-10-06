@@ -72,6 +72,7 @@ obj-$(CONFIG_HDMI_FB_720P) += lcd_720p.o
 obj-$(CONFIG_HDMI_FB_1080P) += lcd_1080p.o
 obj-$(CONFIG_LCD_AT070TN90)    += lcd_at070tn90.o
 obj-$(CONFIG_LCD_AR101H05N)    += lcd_ar101h05n.o
+obj-$(CONFIG_LCD_BT043DCNNHHP) += lcd_bt043dcnnhhp.o
 
 quiet_cmd_gen = GEN     $@
       cmd_gen = cmp -s $< $@ || cp $< $@
