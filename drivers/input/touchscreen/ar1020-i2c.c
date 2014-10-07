@@ -59,7 +59,7 @@ static int lastPUCoordY=0;
    or kernel parameter.  To configuration of these value, please see 
    driver documentation. */
 static int touchIRQ=207;	/* GPIO1_B7/SDO pin */
-static int probeForIRQ=1;
+static int probeForIRQ=0;
 static int testI2Cdata=0;
 static int probeMin=200;
 static int probeMax=250;

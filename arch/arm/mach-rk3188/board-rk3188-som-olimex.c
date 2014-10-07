@@ -621,7 +621,7 @@ struct rk29fb_info lcdc0_screen_info = {
 #if defined(CONFIG_LCDC1_RK3066B) || defined(CONFIG_LCDC1_RK3188)
 struct rk29fb_info lcdc1_screen_info = {
 	#if defined(CONFIG_RK_HDMI)
-	.prop		= EXTEND,	//primary display device
+	.prop		= PRMRY,	//primary display device
 	.io_init   = rk_fb_io_init,
 	.io_disable = rk_fb_io_disable,
 	.io_enable = rk_fb_io_enable,
@@ -2137,8 +2137,9 @@ static struct i2c_board_info __initdata i2c2_info[] = {
 static struct i2c_board_info __initdata i2c3_info[] = {
 #if defined (CONFIG_TOUCHSCREEN_AR1020_I2C)
 {
-		.type	= "ar1020-i2c",
+		.type	= "ar1020_i2c",
 		.addr	= 0x4d,
+		.flags	= 0,
 		.irq	= RK30_PIN1_PB7,
 },
 #endif
