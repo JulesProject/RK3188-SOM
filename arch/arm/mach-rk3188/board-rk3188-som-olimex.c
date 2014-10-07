@@ -2337,19 +2337,18 @@ static void __init machine_rk30_board_init(void)
 	
 	pm_power_off = rk30_pm_power_off;
 	gpio_direction_output(POWER_ON_PIN, GPIO_HIGH);
-	
-
-	/*
-	 * Enable power on USB-HUB
-	 */
-	gpio_request(RK30_PIN0_PA0, "usb_en");
-	gpio_direction_output(RK30_PIN0_PA0, GPIO_HIGH);
 
 	rk30_i2c_register_board_info();
 	spi_register_board_info(board_spi_devices, ARRAY_SIZE(board_spi_devices));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	rk_platform_add_display_devices();
 	board_usb_detect_init(RK30_PIN0_PA7);
+
+#if defined(CONFIG_MACH_RK3188_SOM_OLIMEX)
+	/* Enable USB power */
+	gpio_request(RK30_PIN0_PA3, "usb_en");
+	gpio_direction_output(RK30_PIN0_PA3, GPIO_HIGH);
+#endif
 
 #if defined(CONFIG_WIFI_CONTROL_FUNC)
 	rk29sdk_wifi_bt_gpio_control_init();
