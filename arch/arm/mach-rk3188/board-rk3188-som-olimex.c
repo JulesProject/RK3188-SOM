@@ -520,7 +520,6 @@ static struct sensor_platform_data cm3217_info = {
 #define RK_HDMI_RST_PIN 			RK30_PIN3_PB2
 static int rk_hdmi_power_init(void)
 {
-	int ret;
 
 	if(RK_HDMI_RST_PIN != INVALID_GPIO)
 	{
@@ -1992,10 +1991,10 @@ static struct i2c_board_info __initdata i2c1_info[] = {
 
 #if defined (CONFIG_RTC_HYM8563)
 	{
-		.type                   = "rtc_hym8563",
+		.type			= "rtc_hym8563",
 		.addr           = 0x51,
-		.flags                  = 0,
-		.irq            = RK30_PIN1_PA4,
+		.flags          = 0,
+		.irq            = RK30_PIN0_PB5,
 	},
 #endif
 
@@ -2138,8 +2137,9 @@ static struct i2c_board_info __initdata i2c2_info[] = {
 static struct i2c_board_info __initdata i2c3_info[] = {
 #if defined (CONFIG_TOUCHSCREEN_AR1020_I2C)
 {
-		I2C_BOARD_INFO("ar1020-i2c", 0x4d),
-		.irq	=	RK30_PIN1_PB7,
+		.type	= "ar1020-i2c",
+		.addr	= 0x4d,
+		.irq	= RK30_PIN1_PB7,
 },
 #endif
 };
