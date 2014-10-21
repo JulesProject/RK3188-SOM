@@ -761,13 +761,13 @@ static struct platform_device rk29_device_vibrator = {
 static struct gpio_led rk29_leds[] = {
 	{
 		.name = "led1",
-		.default_trigger = "heartbeat",
+		.default_trigger = "none",
 		.gpio = RK30_PIN0_PB4,
 		.active_low = 1,
 	},
 	{
 		.name = "led2",
-		.default_trigger = "heartbeat",
+		.default_trigger = "none",
 		.gpio = RK30_PIN0_PB6,
 		.active_low = 1,
 	},
@@ -2485,7 +2485,6 @@ static struct cpufreq_frequency_table dvfs_ddr_table_volt_level0[] = {
 	{.frequency = 200 * 1000 + DDR_FREQ_SUSPEND,    .index = 950 * 1000},
 	{.frequency = 300 * 1000 + DDR_FREQ_VIDEO,      .index = 1000 * 1000},
 	{.frequency = 396 * 1000 + DDR_FREQ_NORMAL,     .index = 1100 * 1000},
-	//{.frequency = 528 * 1000 + DDR_FREQ_NORMAL,     .index = 1200 * 1000},
 	{.frequency = CPUFREQ_TABLE_END},
 };
 
