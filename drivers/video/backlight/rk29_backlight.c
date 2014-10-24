@@ -380,7 +380,7 @@ static int rk29_backlight_probe(struct platform_device *pdev)
 
 	rk29_bl->props.power = FB_BLANK_UNBLANK;
 	rk29_bl->props.fb_blank = FB_BLANK_UNBLANK;
-	rk29_bl->props.brightness = BL_STEP / 2;
+	rk29_bl->props.brightness = BL_STEP;
 	rk29_bl->props.state = BL_CORE_DRIVER1;		
 
 	schedule_delayed_work(&rk29_backlight_work, msecs_to_jiffies(rk29_bl_info->delay_ms));
