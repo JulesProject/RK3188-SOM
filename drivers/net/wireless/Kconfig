@@ -112,7 +112,7 @@ choice
         ---help---
 
 source "drivers/net/wireless/mt5931/Kconfig"
-source "drivers/net/wireless/rkusbwifi/rtl8192cu/Kconfig"
+#source "drivers/net/wireless/rkusbwifi/rtl8192cu/Kconfig"
 source "drivers/net/wireless/rkusbwifi/rtl8192du/Kconfig"
 source "drivers/net/wireless/rkusbwifi/rtl8188eu/Kconfig"
 source "drivers/net/wireless/rkusbwifi/rtl8723au/Kconfig"
@@ -220,6 +220,8 @@ config RTL8723AU_LW
     select UHID
 	---help---
 	  Help message of RTL8723AU
+
+source "drivers/net/wireless/rtl8712u/Kconfig"
 
 endif
 
