@@ -1,6 +1,40 @@
 # Support ATE function
 HAS_ATE=n
 
+# Support ATE NEW TXCONT solution
+HAS_NEW_TXCONT=n
+
+# Support ATE NEW TXCARR solution
+HAS_NEW_TXCARR=n
+
+# Support ATE NEW TXCARS solution
+HAS_NEW_TXCARS=n
+
+#-----------------------------------------------#
+# NOTE : RT2xxx does not support this feature !
+# Do not touch this block !!! 
+ifeq ($(CHIPSET),2860)
+HAS_NEW_TXCONT=n
+HAS_NEW_TXCARR=n
+HAS_NEW_TXCARS=n
+endif
+ifeq ($(CHIPSET),2870)
+HAS_NEW_TXCONT=n
+HAS_NEW_TXCARR=n
+HAS_NEW_TXCARS=n
+endif
+ifeq ($(CHIPSET),2880)
+HAS_NEW_TXCONT=n
+HAS_NEW_TXCARR=n
+HAS_NEW_TXCARS=n
+endif
+ifeq ($(CHIPSET),2070)
+HAS_NEW_TXCONT=n
+HAS_NEW_TXCARR=n
+HAS_NEW_TXCARS=n
+endif
+#-----------------------------------------------#
+
 # Support QA ATE function
 HAS_QA_SUPPORT=n
 
@@ -15,24 +49,16 @@ HAS_NINTENDO=n
 # Support LLTD function
 HAS_LLTD=n
 
-# Support WDS function
-HAS_WDS=n
 
 # Support AP-Client function
 HAS_APCLI=n
 
 # Support Wpa_Supplicant
-# i.e. wpa_supplicant -Dralink
-HAS_WPA_SUPPLICANT=n
+HAS_WPA_SUPPLICANT=y
 
 
 # Support Native WpaSupplicant for Network Maganger
-# i.e. wpa_supplicant -Dwext
-
-# what if user want to use wpa_supplicant to serve P2P function/feature, 
-# in case, it must use Ralink Propriectary wpa_supplicant to do.
-# and this compile flag will report P2P Related Event to Ralink wpa_supplicant.
-HAS_NATIVE_WPA_SUPPLICANT_SUPPORT=n
+HAS_NATIVE_WPA_SUPPLICANT_SUPPORT=y
 
 #Support Net interface block while Tx-Sw queue full
 HAS_BLOCK_NET_IF=n
@@ -46,6 +72,8 @@ HAS_DFS_SUPPORT=n
 #Support Carrier-Sense function
 HAS_CS_SUPPORT=n
 
+#Support USB load firmware by multibyte
+HAS_USB_FIRMWARE_MULTIBYTE_WRITE=y
 
 # Support user specific transmit rate of Multicast packet.
 HAS_MCAST_RATE_SPECIFIC_SUPPORT=n
@@ -80,6 +108,8 @@ HAS_SINGLE_SKU_SUPPORT=n
 HAS_DOT11_N_SUPPORT=y
 
 
+#Support for RT5392 RT5372
+HAS_TEMPERATURE_COMPENSATION=n
 
 #Support for 2860/2880 co-exist 
 HAS_RT2880_RT2860_COEXIST=n
@@ -90,39 +120,31 @@ HAS_KTHREAD_SUPPORT=n
 
 
 
-#Support for WiFi Display
-HAS_WFD_SUPPORT=n
-
 #Support for Auto channel select enhance
 HAS_AUTO_CH_SELECT_ENHANCE=n
 
 #Support statistics count
 HAS_STATS_COUNT=y
 
-#Support TSSI Antenna Variation
-HAS_TSSI_ANTENNA_VARIATION=n
 
 #Support USB_BULK_BUF_ALIGMENT
 HAS_USB_BULK_BUF_ALIGMENT=n
 
-#Support for USB_SUPPORT_SELECTIVE_SUSPEND
-HAS_USB_SUPPORT_SELECTIVE_SUSPEND=n
 
-#Support USB load firmware by multibyte
-HAS_USB_FIRMWARE_MULTIBYTE_WRITE=n
+#Support USB_BULK_BUF_ALIGMENT
+HAS_USB_BULK_BUF_ALIGMENT2=n
+
+
+#Support for USB_SUPPORT_SELECTIVE_SUSPEND
+HAS_USB_SUPPORT_SELECTIVE_SUSPEND=y
 
 
 #Support ANDROID_SUPPORT
-HAS_ANDROID_SUPPORT=n
-
-#HAS_IFUP_IN_PROBE_SUPPORT
-HAS_IFUP_IN_PROBE_SUPPORT=n
+HAS_ANDROID_SUPPORT=y
 
 
 
 
-#Support TXRX SW Antenna Diversity
-HAS_TXRX_SW_ANTDIV_SUPPORT=n
 
 #Client support WDS function
 HAS_CLIENT_WDS_SUPPORT=n
@@ -148,8 +170,6 @@ HAS_RFKILL_HW_SUPPORT=n
 
 
 
-HAS_APCLI_WPA_SUPPLICANT=n
-
 HAS_RTMP_FLASH_SUPPORT=n
 
 ifeq ($(OSABL),YES)
@@ -168,49 +188,30 @@ HAS_LED_CONTROL_SUPPORT=y
 #Must enable HAS_WSC at the same time.
 
 
-HAS_STREAM_MODE_SUPPORT=n
 
-HAS_NEW_RATE_ADAPT_SUPPORT=n
-
-
-
-#RT5572 RT5592
-HAS_TSO_SUPPORT=n
-
-
-
-HAS_SWITCH_CHANNEL_OFFLOAD=n
-
-HAS_RESOURCE_PRE_ALLOC=n
 HAS_RESOURCE_BOOT_ALLOC=n
 
-HAS_NEW_MBSSID_MODE=y
+HAS_REFUSE_SCAN_QUERY_WHILE_SCANING=n
 
-HAS_MULTI_CHANNEL=n
 #################################################
 
 CC := $(CROSS_COMPILE)gcc
 LD := $(CROSS_COMPILE)ld
 
 WFLAGS := -DAGGREGATION_SUPPORT -DPIGGYBACK_SUPPORT -DWMM_SUPPORT  -DLINUX -Wall -Wstrict-prototypes -Wno-trigraphs 
-WFLAGS += -DSYSTEM_LOG_SUPPORT  -DRT28xx_MODE=$(RT28xx_MODE) -DCHIPSET=$(MODULE) 
-#-DRESOURCE_PRE_ALLOC
-
-ifeq ($(HAS_RESOURCE_PRE_ALLOC),y)
-WFLAGS += -DRESOURCE_PRE_ALLOC
-endif
+WFLAGS += -DSYSTEM_LOG_SUPPORT  -DRT28xx_MODE=$(RT28xx_MODE) -DCHIPSET=$(CHIPSET) -DRESOURCE_PRE_ALLOC
 
 ifeq ($(HAS_RESOURCE_BOOT_ALLOC),y)
-WFLAGS += -DRESOURCE_BOOT_ALLOC  -I$(LINUX_SRC)/include/linux/usb -I$(LINUX_SRC)/drivers/usb/core
+WFLAGS += -DRESOURCE_BOOT_ALLOC
 endif
 
-#APsoc Specific
-WFLAGS += -DCONFIG_RA_NAT_NONE
-#end of /* APsoc Specific */
+ifeq ($(HAS_REFUSE_SCAN_QUERY_WHILE_SCANING),y)
+WFLAGS += -DREFUSE_SCAN_QUERY_WHILE_SCANING
+endif
 
-
-
-
+ifeq ($(HAS_USB_FIRMWARE_MULTIBYTE_WRITE),y)
+WFLAGS += -DUSB_FIRMWARE_MULTIBYTE_WRITE -DMULTIWRITE_BYTES=64
+endif
 
 
 ifeq ($(HAS_KTHREAD_SUPPORT),y)
@@ -219,14 +220,6 @@ endif
 
 ifeq ($(HAS_RTMP_FLASH_SUPPORT),y)
 WFLAGS += -DRTMP_FLASH_SUPPORT
-endif
-
-ifeq ($(HAS_STREAM_MODE_SUPPORT),y)
-WFLAGS += -DSTREAM_MODE_SUPPORT
-endif
-
-ifeq ($(HAS_SINGLE_SKU_SUPPORT),y)
-WFLAGS += -DSINGLE_SKU
 endif
 
 
@@ -255,7 +248,15 @@ endif
 ifeq ($(HAS_ATE),y)
 WFLAGS += -DRALINK_ATE
 WFLAGS += -DCONFIG_RT2880_ATE_CMD_NEW
-WFLAGS += -I$(RT28xx_DIR)/ate/include
+ifeq ($(HAS_NEW_TXCONT),y)
+WFLAGS += -DNEW_TXCONT
+endif
+ifeq ($(HAS_NEW_TXCARR),y)
+WFLAGS += -DNEW_TXCARR
+endif
+ifeq ($(HAS_NEW_TXCARS),y)
+WFLAGS += -DNEW_TXCARRSUPP
+endif
 ifeq ($(HAS_QA_SUPPORT),y)
 WFLAGS += -DRALINK_QA
 endif
@@ -266,34 +267,17 @@ ifeq ($(HAS_SNMP_SUPPORT),y)
 WFLAGS += -DSNMP_SUPPORT
 endif
 
-ifeq ($(HAS_USB_BULK_BUF_ALIGMENT),y)
-WFLAGS += -DUSB_BULK_BUF_ALIGMENT -DALIGMENT_BULKAGGRE_SIZE=14 -DBUF_ALIGMENT_RINGSIZE=3
-endif
-
 ifeq ($(HAS_QOS_DLS_SUPPORT),y)
 WFLAGS += -DQOS_DLS_SUPPORT
 endif
 
 ifeq ($(HAS_DOT11_N_SUPPORT),y)
 WFLAGS += -DDOT11_N_SUPPORT
-
 ifeq ($(HAS_DOT11N_DRAFT3_SUPPORT),y)
 WFLAGS += -DDOT11N_DRAFT3
 endif
-
-
-ifeq ($(HAS_NEW_RATE_ADAPT_SUPPORT),y)
-WFLAGS += -DNEW_RATE_ADAPT_SUPPORT
 endif
 
-endif
-
-
-ifeq ($(HAS_WFD_SUPPORT),y)
-HAS_P2P_SUPPORT=y
-HAS_P2P_SPECIFIC_WIRELESS_EVENT=y
-WFLAGS += -DWFD_SUPPORT
-endif
 
 
 ifeq ($(HAS_CS_SUPPORT),y)
@@ -304,29 +288,27 @@ ifeq ($(HAS_STATS_COUNT),y)
 WFLAGS += -DSTATS_COUNT_SUPPORT
 endif
 
-ifeq ($(HAS_TSSI_ANTENNA_VARIATION),y)
-WFLAGS += -DTSSI_ANTENNA_VARIATION
+ifeq ($(HAS_USB_BULK_BUF_ALIGMENT),y)
+WFLAGS += -DUSB_BULK_BUF_ALIGMENT
 endif
+
+ifeq ($(HAS_USB_BULK_BUF_ALIGMENT2),y)
+WFLAGS += -DUSB_BULK_BUF_ALIGMENT2
+endif
+
 
 ifeq ($(HAS_ANDROID_SUPPORT),y)
 WFLAGS += -DANDROID_SUPPORT
 endif
 
 
-ifeq ($(HAS_IFUP_IN_PROBE_SUPPORT),y)
-WFLAGS += -DIFUP_IN_PROBE
-endif
-
 ifeq ($(HAS_USB_SUPPORT_SELECTIVE_SUSPEND),y)
-WFLAGS += -DUSB_SUPPORT_SELECTIVE_SUSPEND
+WFLAGS += -DUSB_SUPPORT_SELECTIVE_SUSPEND -DCONFIG_PM
 endif
 
-ifeq ($(HAS_USB_FIRMWARE_MULTIBYTE_WRITE),y)
-WFLAGS += -DUSB_FIRMWARE_MULTIBYTE_WRITE -DMULTIWRITE_BYTES=4
-endif
 
 ifeq ($(HAS_CFG80211_SUPPORT),y)
-WFLAGS += -DRT_CFG80211_SUPPORT -DEXT_BUILD_CHANNEL_LIST
+WFLAGS += -DRT_CFG80211_SUPPORT
 ifeq ($(HAS_RFKILL_HW_SUPPORT),y)
 WFLAGS += -DRFKILL_HW_SUPPORT
 endif
@@ -355,33 +337,9 @@ endif
 endif
 
 
-ifeq ($(HAS_TXRX_SW_ANTDIV_SUPPORT),y)
-WFLAGS += -DTXRX_SW_ANTDIV_SUPPORT
-endif
-
 
 ifeq ($(HAS_WIDI_SUPPORT),y)
 WFLAGS += -DWIDI_SUPPORT
-
-ifeq ($(HAS_INTEL_L2SD_TOGGLE_SCAN_SUPPORT),y)
-WFLAGS += -DINTEL_L2SD_TOGGLE_SCAN_SUPPORT
-endif
-
-ifeq ($(HAS_P2P_SUPPORT),y)
-ifeq ($(HAS_INTEL_WFD_SUPPORT),y)
-WFLAGS += -DINTEL_WFD_SUPPORT
-endif
-
-ifeq ($(HAS_WFA_WFD_SUPPORT),y)
-WFLAGS += -DWFA_WFD_SUPPORT
-endif
-endif
-
-endif
-
-
-ifeq ($(HAS_WOW_IFDOWN_SUPPORT),y)
-WFLAGS += -DWOW_IFDOWN_SUPPORT
 endif
 
 endif
@@ -409,6 +367,13 @@ WFLAGS += -DIDS_SUPPORT
 endif
 
 
+
+ifeq ($(HAS_TEMPERATURE_COMPENSATION),y)
+WFLAGS += -DRTMP_TEMPERATURE_COMPENSATION
+endif
+
+
+
 ifeq ($(OSABL),YES)
 WFLAGS += -DEXPORT_SYMTAB
 endif
@@ -430,282 +395,127 @@ ifeq ($(HAS_LED_CONTROL_SUPPORT),y)
 WFLAGS += -DLED_CONTROL_SUPPORT
 endif
 
-ifeq ($(HAS_SWITCH_CHANNEL_OFFLOAD), y)
-WFLAGS += -DCONFIG_SWITCH_CHANNEL_OFFLOAD
-endif
-
-
-ifeq ($(HAS_MULTI_CHANNEL),y)
-WFLAGS += -DCONFIG_SWITCH_CHANNEL_OFFLOAD -DCONFIG_MULTI_CHANNEL
-endif
-
 #################################################
 # ChipSet specific definitions.
 #
-ifneq ($(findstring 2860,$(CHIPSET)),)
+ifeq ($(CHIPSET),2860)
 WFLAGS +=-DRTMP_MAC_PCI -DRTMP_PCI_SUPPORT -DRT2860 -DRT28xx -DA_BAND_SUPPORT
 CHIPSET_DAT = 2860
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_SOFTWARE_SUPPORT
+endif
 endif
 
-ifneq ($(findstring 3090,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_PCI -DRT30xx -DRT3090  -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DVCORECAL_SUPPORT
+ifeq ($(CHIPSET),3090)
+WFLAGS +=-DRTMP_MAC_PCI -DRT30xx -DRT3090  -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
 CHIPSET_DAT = 2860
 endif
 
-ifneq ($(findstring 2870,$(CHIPSET)),)
+ifeq ($(CHIPSET),2870)
 WFLAGS +=-DRTMP_MAC_USB -DRTMP_USB_SUPPORT -DRT2870 -DRT28xx -DRTMP_TIMER_TASK_SUPPORT -DA_BAND_SUPPORT
 CHIPSET_DAT = 2870
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_SOFTWARE_SUPPORT
 endif
 
-ifneq ($(findstring 2070,$(CHIPSET)),)
+endif
+
+ifeq ($(CHIPSET),2070)
 WFLAGS +=-DRTMP_MAC_USB -DRT30xx -DRT3070 -DRT2070 -DRTMP_USB_SUPPORT -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT
 CHIPSET_DAT = 2870
 endif
 
-ifneq ($(findstring 3070,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_USB -DRT30xx -DRT3070 -DRTMP_USB_SUPPORT -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DVCORECAL_SUPPORT
+ifeq ($(CHIPSET),3070)
+WFLAGS +=-DRTMP_MAC_USB -DRT30xx -DRT3070 -DRTMP_USB_SUPPORT -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
 CHIPSET_DAT = 2870
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-ifeq ($(HAS_CS_SUPPORT), y)
-WFLAGS += -DCARRIER_DETECTION_FIRMWARE_SUPPORT 
-endif
 endif
 
-endif
-
-ifneq ($(findstring 2880,$(CHIPSET)),)
+ifeq ($(CHIPSET),2880)
 WFLAGS += -DRT2880 -DRT28xx -DRTMP_MAC_PCI -DCONFIG_RALINK_RT2880_MP -DRTMP_RBUS_SUPPORT -DMERGE_ARCH_TEAM -DA_BAND_SUPPORT -DCONFIG_SWMCU_SUPPORT
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_HARDWARE_SUPPORT -DDFS_FCC_BW40_FIX -DDFS_DEBUG
+endif
 ifeq ($(HAS_WIFI_LED_SHARE), y)
 WFLAGS += -DCONFIG_WIFI_LED_SHARE
 endif
 endif
 
-ifneq ($(findstring 3572,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_USB -DRTMP_USB_SUPPORT -DRT2870 -DRT28xx -DRT30xx -DRT35xx -DRT3572 -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DA_BAND_SUPPORT -DVCORECAL_SUPPORT
+ifeq ($(CHIPSET),3572)
+WFLAGS +=-DRTMP_MAC_USB -DRTMP_USB_SUPPORT -DRT2870 -DRT28xx -DRT30xx -DRT35xx -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DA_BAND_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
 CHIPSET_DAT = 2870
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-ifeq ($(HAS_CS_SUPPORT), y)
-WFLAGS +=  -DCARRIER_DETECTION_FIRMWARE_SUPPORT
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_SOFTWARE_SUPPORT
 endif
 endif
 
+ifeq ($(CHIPSET),3062)
+WFLAGS +=-DRTMP_MAC_PCI -DRT2860 -DRT28xx -DRT30xx -DRT35xx -DRT3062 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
+CHIPSET_DAT = 2860
 endif
 
-ifneq ($(findstring 3573,$(CHIPSET)),)
-WFLAGS += -DRTMP_MAC_USB -DRTMP_USB_SUPPORT -DRT30xx -DRT35xx -DRT3593 -DRT3573\
-          -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT\
-          -DA_BAND_SUPPORT -DDOT11N_SS3_SUPPORT \
-		  -DVCORECAL_SUPPORT
-
-ifeq ($(HAS_NEW_MBSSID_MODE),y)
-WFLAGS += -DNEW_MBSSID_MODE
+ifeq ($(CHIPSET),3562)
+WFLAGS +=-DRTMP_MAC_PCI -DRT2860 -DRT28xx -DRT30xx -DRT35xx -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DA_BAND_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_HARDWARE_SUPPORT  -DDFS_DEBUG 
 endif
 
-#WFLAGS += -DNEW_RATE_ADAPT_SUPPORT
+CHIPSET_DAT = 2860
+endif
+
+ifeq ($(CHIPSET),3593)
+WFLAGS +=-DRTMP_MAC_PCI -DDOT11N_SS3_SUPPORT -DNEW_RATE_ADAPT_SUPPORT -DRT3593 -DRT28xx -DRT30xx -DRT35xx -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DA_BAND_SUPPORT -DRTMP_FREQ_CALIBRATION_SUPPORT -DNEW_MBSSID_MODE -DSPECIFIC_BCN_BUF_SUPPORT
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_HARDWARE_SUPPORT  -DDFS_DEBUG
+endif
+
+CHIPSET_DAT = 2860
+endif
+
+ifeq ($(CHIPSET),3390)
+WFLAGS +=-DRTMP_MAC_PCI -DRT30xx -DRT33xx -DRT3090 -DRT3390 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_INTERNAL_TX_ALC -DSPECIFIC_VCORECAL_SUPPORT
+CHIPSET_DAT = 2860
+endif
+
+ifeq ($(CHIPSET),3370)
+WFLAGS +=-DRTMP_MAC_USB -DRT30xx -DRT33xx -DRT3070 -DRT3370 -DRTMP_USB_SUPPORT -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_INTERNAL_TX_ALC -DSPECIFIC_VCORECAL_SUPPORT
 CHIPSET_DAT = 2870
-
-ifneq ($(findstring $(RT28xx_MODE),STA APSTA),)
-WFLAGS += -DRTMP_FREQ_CALIBRATION_SUPPORT
 endif
 
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-ifeq ($(HAS_CS_SUPPORT), y)
-WFLAGS +=  -DCARRIER_DETECTION_FIRMWARE_SUPPORT
-endif
-endif
-
-endif
-
-ifneq ($(findstring 3062,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_PCI -DRT2860 -DRT28xx -DRT30xx -DRT35xx -DRT3062 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DVCORECAL_SUPPORT
+ifeq ($(CHIPSET),5390)
+WFLAGS +=-DRTMP_MAC_PCI -DRT30xx -DRT33xx -DRT3090 -DRT3390 -DRT5390 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DSPECIFIC_BCN_BUF_SUPPORT -DRTMP_FREQ_CALIBRATION_SUPPORT -DRTMP_INTERNAL_TX_ALC -DSPECIFIC_VCORECAL_SUPPORT
 CHIPSET_DAT = 2860
 endif
 
-ifneq ($(findstring 3562,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_PCI -DRT2860 -DRT28xx -DRT30xx -DRT35xx -DRT3562 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DA_BAND_SUPPORT -DVCORECAL_SUPPORT
-
-CHIPSET_DAT = 2860
-endif
-
-ifneq ($(findstring 3593,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_PCI -DDOT11N_SS3_SUPPORT -DRT3593 -DRT28xx -DRT30xx -DRT35xx -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DA_BAND_SUPPORT -DVCORECAL_SUPPORT
-
-ifeq ($(HAS_NEW_MBSSID_MODE),y)
-WFLAGS += -DNEW_MBSSID_MODE
-endif
-
-#WFLAGS += -DNEW_RATE_ADAPT_SUPPORT
-CHIPSET_DAT = 2860
-
-ifneq ($(findstring $(RT28xx_MODE),STA APSTA),)
-WFLAGS += -DRTMP_FREQ_CALIBRATION_SUPPORT
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
-endif
-
-ifneq ($(findstring 3390,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_PCI -DRT30xx -DRT33xx -DRT3090 -DRT3390 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_INTERNAL_TX_ALC -DVCORECAL_SUPPORT
-CHIPSET_DAT = 2860
-endif
-
-ifneq ($(findstring 3370,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_USB -DRT30xx -DRT33xx -DRT3070 -DRT3370 -DRTMP_USB_SUPPORT -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_INTERNAL_TX_ALC -DVCORECAL_SUPPORT
+ifeq ($(CHIPSET),5370)
+WFLAGS +=-DRTMP_MAC_USB -DRT30xx -DRT33xx -DRT3070 -DRT3370 -DRT5370 -DRTMP_USB_SUPPORT -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_INTERNAL_TX_ALC -DSPECIFIC_BCN_BUF_SUPPORT -DRTMP_FREQ_CALIBRATION_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
 CHIPSET_DAT = 2870
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-ifeq ($(HAS_CS_SUPPORT), y)
-WFLAGS +=  -DCARRIER_DETECTION_FIRMWARE_SUPPORT
-endif
 endif
 
-endif
-
-ifneq ($(findstring 5390,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_PCI -DRT30xx -DRT33xx -DRT3090 -DRT3390 -DRT5390 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_FREQ_CALIBRATION_SUPPORT -DRTMP_INTERNAL_TX_ALC -DVCORECAL_SUPPORT -DIQ_CAL_SUPPORT -DRTMP_TEMPERATURE_COMPENSATION
-
-ifeq ($(HAS_NEW_MBSSID_MODE),y)
-WFLAGS += -DNEW_MBSSID_MODE
-endif
-
-CHIPSET_DAT = 2860
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
-endif
-
-ifneq ($(findstring 5370,$(CHIPSET)),)
-WFLAGS +=-DRTMP_MAC_USB -DRT30xx -DRT33xx -DRT3070 -DRT3370 -DRT5370 -DRTMP_USB_SUPPORT -DRTMP_TIMER_TASK_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_INTERNAL_TX_ALC -DRTMP_FREQ_CALIBRATION_SUPPORT -DVCORECAL_SUPPORT -DIQ_CAL_SUPPORT -DRTMP_TEMPERATURE_COMPENSATION
-
-ifeq ($(HAS_NEW_MBSSID_MODE),y)
-WFLAGS += -DNEW_MBSSID_MODE
-endif
-
-CHIPSET_DAT = 2870
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-ifeq ($(HAS_CS_SUPPORT), y)
-WFLAGS +=  -DCARRIER_DETECTION_FIRMWARE_SUPPORT
-endif
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
-endif
-
-ifneq ($(findstring 3052,$(CHIPSET)),)
-WFLAGS += -DRTMP_MAC_PCI -DRTMP_RBUS_SUPPORT -DRT3052 -DRT305x -DRTMP_RF_RW_SUPPORT -DCONFIG_SWMCU_SUPPORT -DVCORECAL_SUPPORT
+ifeq ($(CHIPSET), 3052)
+WFLAGS += -DRTMP_MAC_PCI -DRTMP_RBUS_SUPPORT -DRT3052 -DRT305x -DRTMP_RF_RW_SUPPORT -DCONFIG_SWMCU_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
 CHIPSET_DAT = 2870
 ifeq ($(HAS_WIFI_LED_SHARE), y)
 WFLAGS += -DCONFIG_WIFI_LED_SHARE
 endif
 endif
 
-ifneq ($(findstring 3352,$(CHIPSET)),)
-WFLAGS += -DRTMP_MAC_PCI -DRTMP_RBUS_SUPPORT -DRT3352 -DRT305x -DRTMP_RF_RW_SUPPORT -DVCORECAL_SUPPORT -DCONFIG_SWMCU_SUPPORT -DRTMP_INTERNAL_TX_ALC
-
-ifeq ($(HAS_NEW_MBSSID_MODE),y)
-WFLAGS += -DNEW_MBSSID_MODE
-endif
-
+ifeq ($(CHIPSET), 3352)
+WFLAGS += -DRTMP_MAC_PCI -DRTMP_RBUS_SUPPORT -DRT3352 -DRT305x -DRTMP_RF_RW_SUPPORT -DSPECIFIC_BCN_BUF_SUPPORT -DVCORECAL_SUPPORT -DCONFIG_SWMCU_SUPPORT -DRTMP_INTERNAL_TX_ALC
 CHIPSET_DAT = 2860
 ifeq ($(HAS_WIFI_LED_SHARE), y)
 WFLAGS += -DCONFIG_WIFI_LED_SHARE
 endif
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
 endif
 
-ifneq ($(findstring 5350,$(CHIPSET)),)
-WFLAGS += -DRTMP_MAC_PCI -DRTMP_RBUS_SUPPORT -DRT5350 -DRT305x -DRT3050 -DRT3350 -DRTMP_RF_RW_SUPPORT -DVCORECAL_SUPPORT -DCONFIG_SWMCU_SUPPORT -DRTMP_INTERNAL_TX_ALC -DRTMP_FREQ_CALIBRATION_SUPPORT -DIQ_CAL_SUPPORT
-
-ifeq ($(HAS_NEW_MBSSID_MODE),y)
-WFLAGS += -DNEW_MBSSID_MODE
-endif
-
+ifeq ($(CHIPSET), 5350)
+WFLAGS += -DRTMP_MAC_PCI -DRTMP_RBUS_SUPPORT -DRT5350 -DRT305x -DRT3050 -DRT3350 -DRTMP_RF_RW_SUPPORT -DSPECIFIC_BCN_BUF_SUPPORT -DVCORECAL_SUPPORT -DCONFIG_SWMCU_SUPPORT -DRTMP_INTERNAL_TX_ALC -DRTMP_FREQ_CALIBRATION_SUPPORT
 CHIPSET_DAT = 2860
 ifeq ($(HAS_WIFI_LED_SHARE), y)
 WFLAGS += -DCONFIG_WIFI_LED_SHARE
 endif
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
 endif
 
-ifneq ($(findstring 5592,$(CHIPSET)),)
-WFLAGS += -DRTMP_MAC_PCI -DRTMP_PCI_SUPPORT -DRT30xx -DRT5592\
-		  -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT\
-		  -DA_BAND_SUPPORT -DIQ_CAL_SUPPORT -DRX_DMA_SCATTER -DVCORECAL_SUPPORT\
-          -DRTMP_TEMPERATURE_COMPENSATION
 
-ifeq ($(HAS_NEW_MBSSID_MODE),y)
-WFLAGS += -DNEW_MBSSID_MODE
-endif
-
-CHIPSET_DAT = 2860
-ifeq ($(HAS_TSO_SUPPORT), y)
-WFLAGS += -DCONFIG_TSO_SUPPORT
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),STA APSTA),)
-WFLAGS += -DRTMP_FREQ_CALIBRATION_SUPPORT
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
-
-endif
-
-ifneq ($(findstring 5572,$(CHIPSET)),)
-WFLAGS += -DRTMP_MAC_USB -DRTMP_USB_SUPPORT -DRT30xx -DRT5572 -DRT5592\
-		  -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT \
-		  -DRTMP_TIMER_TASK_SUPPORT -DA_BAND_SUPPORT -DIQ_CAL_SUPPORT -DVCORECAL_SUPPORT\
-		  -DRTMP_TEMPERATURE_COMPENSATION
-CHIPSET_DAT = 2870
-ifeq ($(HAS_TSO_SUPPORT), y)
-WFLAGS += -DCONFIG_TSO_SUPPORT
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-ifeq ($(HAS_CS_SUPPORT), y)
-WFLAGS +=  -DCARRIER_DETECTION_FIRMWARE_SUPPORT 
-endif
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),STA APSTA),)
-WFLAGS += -DRTMP_FREQ_CALIBRATION_SUPPORT
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-#WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
-
-endif
-
-ifneq ($(findstring 3290,$(CHIPSET)),)
-WFLAGS += -DRTMP_MAC_PCI -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DRTMP_FREQ_CALIBRATION_SUPPORT -DRTMP_INTERNAL_TX_ALC -DRT30xx -DRT3290 -DVCORECAL_SUPPORT
-CHIPSET_DAT = 2860
-
-ifneq ($(findstring $(RT28xx_MODE),STA APSTA),)
-WFLAGS += -DRTMP_FREQ_CALIBRATION_SUPPORT -DPCIE_PS_SUPPORT
-endif
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
-endif
-endif
 
 
 ifeq ($(CHIPSET),USB)
@@ -714,6 +524,9 @@ WFLAGS +=-DRTMP_MAC_USB -DRTMP_USB_SUPPORT -DRT2870 -DRT28xx -DRT30xx -DRT35xx -
 #3370
 WFLAGS += -DRT33xx -DRT3070 -DRT3370 -DRTMP_TIMER_TASK_SUPPORT -DRTMP_INTERNAL_TX_ALC
 CHIPSET_DAT = 2870
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_SOFTWARE_SUPPORT
+endif
 endif
 
 
@@ -722,20 +535,19 @@ ifeq ($(CHIPSET),PCI)
 WFLAGS +=-DRTMP_MAC_PCI -DRT2860 -DRT28xx -DRT30xx -DRT35xx -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DRTMP_EFUSE_SUPPORT -DA_BAND_SUPPORT -DSPECIFIC_VCORECAL_SUPPORT
 #3390
 WFLAGS +=-DRT33xx -DRT3090 -DRT3390 -DRTMP_INTERNAL_TX_ALC
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_HARDWARE_SUPPORT  -DDFS_DEBUG 
+endif
 endif
 
 
 ifeq ($(CHIPSET),RBUS)
 WFLAGS += -DMERGE_ARCH_TEAM -DCONFIG_SWMCU_SUPPORT -DCONFIG_RA_NAT_NONE -DRTMP_RBUS_SUPPORT
-#5350, 3050, 3350, 3883
-WFLAGS +=-DRTMP_MAC_PCI -DRT305x -DRT5350 -DRT3050 -DRT3350 -DRT3883 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DA_BAND_SUPPORT -DVCORECAL_SUPPORT
-
-ifneq ($(findstring $(RT28xx_MODE),AP),)
-WFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
+#5350, 3050, 3350
+WFLAGS +=-DRTMP_MAC_PCI -DRT305x -DRT5350 -DRT3050 -DRT3350 -DRTMP_PCI_SUPPORT -DRTMP_RF_RW_SUPPORT -DA_BAND_SUPPORT -DVCORECAL_SUPPORT -DSPECIFIC_BCN_BUF_SUPPORT
+ifeq ($(HAS_DFS_SUPPORT),y)
+WFLAGS += -DDFS_HARDWARE_SUPPORT  -DDFS_DEBUG 
 endif
-#WFLAGS += -DDBG_CTRL_SUPPORT 
-#WFLAGS += -DINCLUDE_DEBUG_QUEUE
-#WFLAGS += -DRANGE_EXTEND -DCFO_TRACK -DPRE_ANT_SWITCH
 endif
 
 
@@ -766,15 +578,7 @@ ifeq ($(PLATFORM),RMI)
 WFLAGS += -DRT_BIG_ENDIAN 
 endif
 
-ifeq ($(PLATFORM),UBICOM_IPX8)
-WFLAGS += -DRT_BIG_ENDIAN -DUNALIGNMENT_SUPPORT -DPLATFORM_UBM_IPX8 -DNO_CONSISTENT_MEM_SUPPORT -DCACHE_LINE_32B
-endif
-
 ifeq ($(PLATFORM),BL2348)
-WFLAGS += -DRT_BIG_ENDIAN
-endif
-
-ifeq ($(PLATFORM),BL23570)
 WFLAGS += -DRT_BIG_ENDIAN
 endif
 
@@ -853,6 +657,11 @@ ifeq ($(PLATFORM),ST)
 WFLAGS += -DST
 endif
 
+ifeq ($(PLATFORM),JZSOC)
+        EXTRA_CFLAGS := $(WFLAGS) -I$(RT28xx_DIR)/include
+        export EXTRA_CFLAGS
+endif
+
 #kernel build options for 2.4
 # move to Makefile outside LINUX_SRC := /opt/star/kernel/linux-2.4.27-star
 
@@ -870,11 +679,6 @@ ifeq ($(PLATFORM),STAR)
 CFLAGS := -D__KERNEL__ -I$(LINUX_SRC)/include -I$(RT28xx_DIR)/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -Uarm -fno-common -pipe -mapcs-32 -D__LINUX_ARM_ARCH__=4 -march=armv4  -mshort-load-bytes -msoft-float -Uarm -DMODULE -DMODVERSIONS -include $(LINUX_SRC)/include/linux/modversions.h $(WFLAGS)
 
 export CFLAGS
-endif
-
-ifeq ($(PLATFORM),UBICOM_IPX8)
-EXTRA_CFLAGS += $(WFLAGS) -I$(RT28xx_DIR)/include
-export EXTRA_CFLAGS
 endif
 
 ifeq ($(PLATFORM),SIGMA)
@@ -954,10 +758,6 @@ ifeq ($(PLATFORM),PC)
     endif
 endif
 
-ifeq ($(PLATFORM),INTELP6)
-	EXTRA_CFLAGS := $(WFLAGS) -I$(RT28xx_DIR)/include
-endif
-
 #If the kernel version of RMI is newer than 2.6.27, please change "CFLAGS" to "EXTRA_FLAGS"
 ifeq ($(PLATFORM),RMI)
 EXTRA_CFLAGS := -D__KERNEL__ -DMODULE=1 -I$(LINUX_SRC)/include -I$(LINUX_SRC)/include/asm-mips/mach-generic  -I$(RT28xx_DIR)/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -DCONFIG_IFX_ALG_QOS -DCONFIG_WAN_VLAN_SUPPORT -fomit-frame-pointer -DIFX_PPPOE_FRAME -G 0 -fno-pic -mno-abicalls -mlong-calls -pipe -finline-limit=100000 -mabi=32 -G 0 -mno-abicalls -fno-pic -pipe -msoft-float -march=xlr -ffreestanding  -march=xlr -Wa,--trap, -nostdinc -iwithprefix include $(WFLAGS)
@@ -993,11 +793,6 @@ endif
 ifeq ($(PLATFORM),BL2348)
 CFLAGS := -D__KERNEL__ -I$(RT28xx_DIR)/include -I$(LINUX_SRC)/include -I$(LINUX_SRC)/include/asm/gcc -I$(LINUX_SRC)/include/asm-mips/mach-tango2 -I$(LINUX_SRC)/include/asm-mips/mach-tango2 -DEM86XX_CHIP=EM86XX_CHIPID_TANGO2 -DEM86XX_REVISION=6 -I$(LINUX_SRC)/include/asm-mips/mach-generic -I$(RT2860_DIR)/include -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -ffreestanding -O2     -fomit-frame-pointer -G 0 -mno-abicalls -fno-pic -pipe  -mabi=32 -march=mips32r2 -Wa,-32 -Wa,-march=mips32r2 -Wa,-mips32r2 -Wa,--trap -DMODULE $(WFLAGS) -DSIGMA863X_PLATFORM -DEXPORT_SYMTAB -DPLATFORM_BL2348
 export CFLAGS
-endif
-
-ifeq ($(PLATFORM),BL23570)
-EXTRA_CFLAGS := -D__KERNEL__ -I$(RT28xx_DIR)/include -I$(LINUX_SRC)/include -I$(LINUX_SRC)/include/asm/gcc -I$(LINUX_SRC)/include/asm-mips/mach-tango2 -I$(LINUX_SRC)/include/asm-mips/mach-tango2 -DEM86XX_CHIP=EM86XX_CHIPID_TANGO2 -DEM86XX_REVISION=6 -I$(LINUX_SRC)/include/asm-mips/mach-generic -I$(RT2860_DIR)/include -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -ffreestanding -O2     -fomit-frame-pointer -G 0 -mno-abicalls -fno-pic -pipe  -mabi=32 -march=74kc -Wa,-32 -Wa,-march=mips32r2 -Wa,-mips32r2 -Wa,--trap -DMODULE $(WFLAGS) -DSIGMA863X_PLATFORM -DEXPORT_SYMTAB -DPLATFORM_BL23570
-export EXTRA_CFLAGS
 endif
 
 ifeq ($(PLATFORM),BLUBB)
@@ -1051,3 +846,23 @@ ifeq ($(PLATFORM),RALINK_3352)
 CFLAGS := -D__KERNEL__ -I$(LINUX_SRC)/include/asm-mips/mach-generic -I$(LINUX_SRC)/include -I$(RT28xx_DIR)/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -fomit-frame-pointer -G 0 -mno-abicalls -fno-pic -pipe  -finline-limit=100000 -march=mips2 -mabi=32 -Wa,--trap -DLINUX -nostdinc -iwithprefix include $(WFLAGS)
 export CFLAGS
 endif
+
+ifeq ($(PLATFORM),IMX51)
+EXTRA_CFLAGS := $(WFLAGS) -I$(RT28xx_DIR)/include -D__KERNEL__ -DMODULE
+export EXTRA_CFLAGS
+endif
+
+ifeq ($(PLATFORM),Telechips)
+EXTRA_CFLAGS := $(WFLAGS) -I$(RT28xx_DIR)/include -D__KERNEL__ -DMODULE -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -fno-delete-null-pointer-checks -Os -marm -mabi=aapcs-linux -mno-thumb-interwork -funwind-tables -D__LINUX_ARM_ARCH__=7 -march=armv7-a -msoft-float -Uarm -Wframe-larger-than=1024 -fno-stack-protector -fomit-frame-pointer -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack
+export EXTRA_CFLAGS
+endif
+
+ifeq ($(PLATFORM),sunxi)
+#	EXTRA_CFLAGS := $(WFLAGS) -I$(LINUX_SRC)/include -I$(RT28xx_DIR)/include -I$(src)/include
+	EXTRA_CFLAGS := $(WFLAGS) -O2  -Wno-unused-variable -Wno-unused-value -Wno-unused-label -Wno-unused-parameter -Wno-uninitialized -Wno-unused -Wno-unused-function  -I$(LINUX_SRC)/include -I$(RT28xx_DIR)/include -I$(src)/include -DCONFIG_LITTLE_ENDIAN
+export EXTRA_CFLAGS
+endif
+
+#/home/carter/Desktop/Working_2011/Customer/TelechipSDK/gingerbread_rel/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-gcc -Wp,-MD,net/ipv6/.exthdrs.o.d  -nostdinc -isystem /home/carter/Desktop/Working_2011/Customer/TelechipSDK/gingerbread_rel/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/../lib/gcc/arm-eabi/4.4.3/include -I/home/carter/Desktop/Working_2011/Customer/TelechipSDK/gingerbread_rel/kernel/arch/arm/include -Iinclude  -include include/generated/autoconf.h -D__KERNEL__ -mlittle-endian -Iarch/arm/mach-tcc88xx/include -Iarch/arm/plat-tcc/include -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -fno-delete-null-pointer-checks -Os -marm -mabi=aapcs-linux -mno-thumb-interwork -funwind-tables -D__LINUX_ARM_ARCH__=7 -march=armv7-a -msoft-float -Uarm -Wframe-larger-than=1024 -fno-stack-protector -fomit-frame-pointer -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack
+
+#/home/carter/Desktop/Working_2011/Customer/TelechipSDK/gingerbread_rel/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-gcc -Wp,-MD,lib/.idr.o.d  -nostdinc -isystem /home/carter/Desktop/Working_2011/Customer/TelechipSDK/gingerbread_rel/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/../lib/gcc/arm-eabi/4.4.3/include -I/home/carter/Desktop/Working_2011/Customer/TelechipSDK/gingerbread_rel/kernel/arch/arm/include -Iinclude  -include include/generated/autoconf.h -D__KERNEL__ -mlittle-endian -Iarch/arm/mach-tcc93xx/include -Iarch/arm/plat-tcc/include -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -fno-delete-null-pointer-checks -Os -marm -mabi=aapcs-linux -mno-thumb-interwork -funwind-tables -D__LINUX_ARM_ARCH__=6 -march=armv6 -mtune=arm1136j-s -msoft-float -Uarm -Wframe-larger-than=1024 -fno-stack-protector -fomit-frame-pointer -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack   -D"KBUILD_STR(s)=#s" -D"KBUILD_BASENAME=KBUILD_STR(idr)"  -D"KBUILD_MODNAME=KBUILD_STR(idr)"  -c -o lib/idr.o lib/idr.c

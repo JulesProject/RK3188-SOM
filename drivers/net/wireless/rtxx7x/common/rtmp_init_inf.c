@@ -73,9 +73,6 @@ VOID RtmpDrvOpsInit(
 #ifdef MBSS_SUPPORT
 	pDrvOps->MBSS_PacketSend = MBSS_PacketSend;
 #endif /* MBSS_SUPPORT */
-#ifdef WDS_SUPPORT
-	pDrvOps->WDS_PacketSend = WDS_PacketSend;
-#endif /* WDS_SUPPORT */
 #ifdef APCLI_SUPPORT
 	pDrvOps->APC_PacketSend = APC_PacketSend;
 #endif /* APCLI_SUPPORT */
@@ -96,9 +93,6 @@ VOID RtmpDrvOpsInit(
 	pRtmpDrvNetOps->RtmpDrvUsbBulkOutDataPacketComplete = RTUSBBulkOutDataPacketComplete;
 	pRtmpDrvNetOps->RtmpDrvUsbBulkOutMLMEPacketComplete = RTUSBBulkOutMLMEPacketComplete;
 	pRtmpDrvNetOps->RtmpDrvUsbBulkOutNullFrameComplete = RTUSBBulkOutNullFrameComplete;
-#if defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT)
-	pRtmpDrvNetOps->RtmpDrvUsbBulkOutHCCANullFrameComplete = RTUSBBulkOutHCCANullFrameComplete;
-#endif /* defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT) */
 /*	pRtmpDrvNetOps->RtmpDrvUsbBulkOutRTSFrameComplete = RTUSBBulkOutRTSFrameComplete;*/
 	pRtmpDrvNetOps->RtmpDrvUsbBulkOutPsPollComplete = RTUSBBulkOutPsPollComplete;
 	pRtmpDrvNetOps->RtmpDrvUsbBulkRxComplete = RTUSBBulkRxComplete;
@@ -117,64 +111,14 @@ int rt28xx_init(
 	IN PSTRING	pDefaultMac, 
 	IN PSTRING	pHostName)
 {
-	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)pAdSrc;
+	PRTMP_ADAPTER	pAd = (PRTMP_ADAPTER)pAdSrc;
 	UINT					index;
 	UCHAR					TmpPhy;
 	NDIS_STATUS				Status;
+	UINT32 					MacCsr0 = 0;
 
 	if (pAd == NULL)
 		return FALSE;
-
-#ifdef RT3290
-	DBGPRINT(RT_DEBUG_OFF, ("MACVersion=0x%x\n", pAd->MACVersion));
-	if (IS_RT3290(pAd))
-	{
-		UINT32 MacRegValue;
-		OSCCTL_STRUC osCtrl = {.word = 0};
-		CMB_CTRL_STRUC cmbCtrl = {.word = 0};
-		WLAN_FUN_CTRL_STRUC WlanFunCtrl = {.word = 0};
-			
-		RTMPEnableWlan(pAd, TRUE, TRUE);
-
-		//
-		// Too much time for reading efuse(enter/exit L1), and our device will hang up
-		// Disable L1
-		//
-		RTMP_IO_READ32(pAd, WLAN_FUN_CTRL, &WlanFunCtrl.word);
-		if (WlanFunCtrl.field.WLAN_EN == TRUE)
-		{
-			WlanFunCtrl.field.PCIE_APP0_CLK_REQ = TRUE;
-			RTMP_IO_WRITE32(pAd, WLAN_FUN_CTRL, WlanFunCtrl.word);
-		}
-			
-		//Enable ROSC_EN first then CAL_REQ
-		RTMP_IO_READ32(pAd, OSCCTL, &osCtrl.word);
-		osCtrl.field.ROSC_EN = TRUE; //HW force 
-		RTMP_IO_WRITE32(pAd, OSCCTL, osCtrl.word);	
-		
-		osCtrl.field.ROSC_EN = TRUE; //HW force 
-		osCtrl.field.CAL_REQ = TRUE;
-		osCtrl.field.REF_CYCLE = 0x27;
-		RTMP_IO_WRITE32(pAd, OSCCTL, osCtrl.word);
-
-		RTMP_IO_READ32(pAd, CMB_CTRL, &cmbCtrl.word);
-		pAd->CmbCtrl.word = cmbCtrl.word;
-
-		// Overwrite default Coex Parameter
-		RTMP_IO_READ32(pAd, COEXCFG0, &MacRegValue);
-		MacRegValue &= ~(0xFF000000);
-		MacRegValue |= 0x5E000000;
-		RTMP_IO_WRITE32(pAd, COEXCFG0, MacRegValue);
-	}
-
-	if (IS_RT3290LE(pAd))
-	{
-		PLL_CTRL_STRUC PllCtrl;
-		RTMP_IO_READ32(pAd, PLL_CTRL, &PllCtrl.word);
-		PllCtrl.field.VCO_FIXED_CURRENT_CONTROL = 0x1;			
-		RTMP_IO_WRITE32(pAd, PLL_CTRL, PllCtrl.word);
-	}
-#endif /* RT3290 */
 
 #ifdef CONFIG_STA_SUPPORT
 #ifdef PCIE_PS_SUPPORT
@@ -208,11 +152,22 @@ int rt28xx_init(
 
 	/* Make sure MAC gets ready.*/
 	index = 0;
-	if (WaitForAsicReady(pAd) != TRUE)
-		goto err1;
+	do
+	{
+		RTMP_IO_READ32(pAd, MAC_CSR0, &MacCsr0);
+		pAd->MACVersion = MacCsr0;
 
-	DBGPRINT(RT_DEBUG_TRACE, ("MAC[Ver:Rev=0x%08x]\n", pAd->MACVersion));
+		if ((pAd->MACVersion != 0x00) && (pAd->MACVersion != 0xFFFFFFFF))
+			break;
+
+		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST))			
+			goto err1;
 		
+		RTMPusecDelay(10);
+	} while (index++ < 100);
+	DBGPRINT(RT_DEBUG_TRACE, ("MAC_CSR0  [ Ver:Rev=0x%08x]\n", pAd->MACVersion));
+
+	RtmpChipOpsHook(pAd);
 
 	if (MAX_LEN_OF_MAC_TABLE > MAX_AVAILABLE_CLIENT_WCID(pAd))
 	{
@@ -223,7 +178,6 @@ int rt28xx_init(
 
 	/* Disable DMA*/
 	RT28XXDMADisable(pAd);
-
 
 	/* Load 8051 firmware*/
 	Status = NICLoadFirmware(pAd);
@@ -275,7 +229,6 @@ int rt28xx_init(
 	
 	UserCfgInit(pAd);
 
-
 	Status = RtmpNetTaskInit(pAd);
 	if (Status != NDIS_STATUS_SUCCESS)
 		goto err5;
@@ -319,12 +272,6 @@ int rt28xx_init(
 	/* unknown, it will be updated in NICReadEEPROMParameters */
 	pAd->RfIcType = RFIC_UNKNOWN;
 	Status = RTMPReadParametersHook(pAd);
-
-#ifdef CONFIG_STA_SUPPORT
-#ifdef CREDENTIAL_STORE
-	RecoverConnectInfo(pAd);
-#endif /* CREDENTIAL_STORE */
-#endif /* CONFIG_STA_SUPPORT */
 
 	DBGPRINT(RT_DEBUG_OFF, ("1. Phy Mode = %d\n", pAd->CommonCfg.PhyMode));
 	if (Status != NDIS_STATUS_SUCCESS)
@@ -371,41 +318,38 @@ int rt28xx_init(
 
 	DBGPRINT(RT_DEBUG_OFF, ("3. Phy Mode = %d\n", pAd->CommonCfg.PhyMode));
 
-#ifdef LED_CONTROL_SUPPORT
-	/* Send LED Setting to MCU */
-	RTMPInitLEDMode(pAd);	
-#endif /* LED_CONTROL_SUPPORT */
-
-	NICInitAsicFromEEPROM(pAd); /* rt2860b */
-
-
+	NICInitAsicFromEEPROM(pAd); /*rt2860b*/
+#ifdef CONFIG_STA_SUPPORT	
 #ifdef RTMP_FREQ_CALIBRATION_SUPPORT
-#ifdef CONFIG_STA_SUPPORT
-	/* Initialize the frequency calibration*/
-	if (pAd->chipCap.FreqCalibrationSupport)
-		FrequencyCalibration(pAd);	
-#endif /* CONFIG_STA_SUPPORT */
+/*	if (IS_RT3593(pAd))*/
+/*	{*/
+		
+		/* Initialize the frequency calibration*/
+		
+		RTMP_CHIP_ASIC_FREQ_CAL_INIT(pAd);
+/*	}*/
 #endif /* RTMP_FREQ_CALIBRATION_SUPPORT */
+#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef RTMP_INTERNAL_TX_ALC
+	
 	/* Initialize the desired TSSI table*/
+	
 	RTMP_CHIP_ASIC_TSSI_TABLE_INIT(pAd);
 #endif /* RTMP_INTERNAL_TX_ALC */
 
 #ifdef RTMP_TEMPERATURE_COMPENSATION
+	
 	/* Temperature compensation, initialize the lookup table */
-	DBGPRINT(RT_DEBUG_OFF, ("bAutoTxAgcG = %d\n", pAd->bAutoTxAgcG));
-
-	if (pAd->chipCap.bTempCompTxALC && pAd->bAutoTxAgcG)
+	
+	DBGPRINT(RT_DEBUG_ERROR, ("IS_RT5392 = %d, bAutoTxAgcG = %d\n", IS_RT5392(pAd), pAd->bAutoTxAgcG));
+	if (IS_RT5392(pAd) && pAd->bAutoTxAgcG && pAd->CommonCfg.TempComp != 0)
+	{
 		InitLookupTable(pAd);
+	}
 #endif /* RTMP_TEMPERATURE_COMPENSATION */
 
-#ifdef RTMP_FREQ_CALIBRATION_SUPPORT
-#ifdef CONFIG_STA_SUPPORT
-	if (pAd->chipCap.FreqCalibrationSupport)
-		InitFrequencyCalibration(pAd);
-#endif /* CONFIG_STA_SUPPORT */
-#endif /* RTMP_FREQ_CALIBRATION_SUPPORT */
+
 
 	/* Set PHY to appropriate mode*/
 	TmpPhy = pAd->CommonCfg.PhyMode;
@@ -437,10 +381,9 @@ int rt28xx_init(
 #endif /* IKANOS_VX_1X0 */
 
 #ifdef RTMP_MAC_USB
-	AsicSendCommandToMcu(pAd, 0x31, 0xff, 0x00, 0x02, FALSE);
+	AsicSendCommandToMcu(pAd, 0x31, 0xff, 0x00, 0x02);
 	RTMPusecDelay(10000);
 #endif /* RTMP_MAC_USB */
-
 
 
 	/*
@@ -449,12 +392,6 @@ int rt28xx_init(
 		other modules API to get some information to fill.
 	*/
 
-
-
-#ifdef CONFIG_TSO_SUPPORT
-	if (RTMP_TEST_MORE_FLAG(pAd, fRTMP_ADAPTER_TSO_SUPPORT))
-		RTMPTsoEnable(pAd);
-#endif /* CONFIG_TSO_SUPPORT */
 
 	if (pAd && (Status != NDIS_STATUS_SUCCESS))
 	{
@@ -494,16 +431,13 @@ int rt28xx_init(
 #endif /* RTMP_MAC_USB */
 	}/* end of else*/
 
+
 	/* Set up the Mac address*/
 #ifdef CONFIG_STA_SUPPORT
 	RtmpOSNetDevAddrSet(pAd->OpMode, pAd->net_dev, &pAd->CurrentAddress[0], (PUCHAR)(pAd->StaCfg.dev_name));
 #endif /* CONFIG_STA_SUPPORT */
 
 	/* Various AP function init*/
-
-#ifdef UAPSD_SUPPORT
-        UAPSD_Init(pAd);
-#endif /* UAPSD_SUPPORT */
 
 	/* assign function pointers*/
 
@@ -525,58 +459,23 @@ int rt28xx_init(
 	}
 #endif /* CONFIG_STA_SUPPORT */
 
-	/* auto-fall back settings */
-#ifdef RANGE_EXTEND
-	RTMP_IO_WRITE32(pAd, HT_FBK_CFG1, 0xedcba980);
-#endif // RANGE_EXTEND //
-#ifdef DOT11N_SS3_SUPPORT
-	if (pAd->CommonCfg.TxStream >= 3)
-	{
-		RTMP_IO_WRITE32(pAd, TX_FBK_CFG_3S_0, 0x12111008);
-		RTMP_IO_WRITE32(pAd, TX_FBK_CFG_3S_1, 0x16151413);
-	}
-#endif /* DOT11N_SS3_SUPPORT */
-
-#ifdef STREAM_MODE_SUPPORT
-	RtmpStreamModeInit(pAd);
-#endif /* STREAM_MODE_SUPPORT */
-
-
-#ifdef DOT11_N_SUPPORT
-#endif /* DOT11_N_SUPPORT */
 
 
 
-#ifdef RT3290
-	if (IS_RT3290(pAd))
-	{
-		WLAN_FUN_CTRL_STRUC     WlanFunCtrl = {.word = 0};
-		RTMP_MAC_PWRSV_EN(pAd, TRUE, TRUE);	
-		//
-		// Too much time for reading efuse(enter/exit L1), and our device will hang up
-		// Enable L1
-		//
-		RTMP_IO_READ32(pAd, WLAN_FUN_CTRL, &WlanFunCtrl.word);
-		if (WlanFunCtrl.field.WLAN_EN == TRUE)
-		{
-			WlanFunCtrl.field.PCIE_APP0_CLK_REQ = FALSE;
-			RTMP_IO_WRITE32(pAd, WLAN_FUN_CTRL, WlanFunCtrl.word);
-		}
-	}
-#endif /* RT3290 */
+#ifdef HW_ANTENNA_DIVERSITY_SUPPORT
+	if (pAd->chipCap.FlgIsHwAntennaDiversitySup == TRUE)
+		SetHWAntennaDivsersity(pAd, pAd->bHardwareAntennaDivesity);
+#endif // HW_ANTENNA_DIVERSITY_SUPPORT //
+
+	RTMP_CHIP_SPECIFIC(pAd, RTMP_CHIP_SPEC_STATE_INIT,
+						RTMP_CHIP_SPEC_INITIALIZATION, NULL, 0);
+
 
 	DBGPRINT_S(Status, ("<==== rt28xx_init, Status=%x\n", Status));
 
 	return TRUE;
 
-/*err7:
-	APStop(pAd);*/
 err6:
-
-#ifdef IGMP_SNOOP_SUPPORT
-	MultiCastFilterTableReset(&pAd->pMulticastFilterTable);
-#endif /* IGMP_SNOOP_SUPPORT */
-
 	MeasureReqTabExit(pAd);
 	TpcReqTabExit(pAd);
 err5:	
@@ -584,12 +483,8 @@ err5:
 	UserCfgExit(pAd);
 err4:	
 	MlmeHalt(pAd);
-	RTMP_TimerListRelease(pAd);
 err3:	
 	RtmpMgmtTaskExit(pAd);
-#ifdef RTMP_TIMER_TASK_SUPPORT
-	NdisFreeSpinLock(&pAd->TimerQLock);
-#endif /* RTMP_TIMER_TASK_SUPPORT */
 err2:
 #ifdef RESOURCE_PRE_ALLOC
 	RTMPResetTxRxRingMemory(pAd);
@@ -599,11 +494,6 @@ err2:
 
 err1:
 
-
-#ifdef RT3290
-	if (IS_RT3290(pAd))
-		RTMPEnableWlan(pAd, FALSE, FALSE);
-#endif /* RT3290 */
 
 #ifdef DOT11_N_SUPPORT
 	if(pAd->mpdu_blk_pool.mem)
@@ -675,18 +565,11 @@ VOID RTMPDrvOpen(
 		To reduce connection time, 
 		do auto reconnect here instead of waiting STAMlmePeriodicExec to do auto reconnect.
 	*/
-	if (pAd->OpMode == OPMODE_STA)
-		MlmeAutoReconnectLastSSID(pAd);
+//Carter Debug
+	/*if (pAd->OpMode == OPMODE_STA)
+		MlmeAutoReconnectLastSSID(pAd);*/
+
 #endif /* CONFIG_STA_SUPPORT */
-
-
-#ifdef CONFIG_STA_SUPPORT
-#endif /* CONFIG_STA_SUPPORT */
-
-
-#ifdef CONFIG_MULTI_CHANNEL
-	MultiChannelThreadInit(pAd);
-#endif /* CONFIG_MULTI_CHANNEL */
 
 }
 
@@ -701,21 +584,6 @@ VOID RTMPDrvClose(
 
 
 	Cancelled = FALSE;
-
-#ifdef CONFIG_STA_SUPPORT
-#ifdef CREDENTIAL_STORE
-		if (pAd->IndicateMediaState == NdisMediaStateConnected)
-		{	
-			StoreConnectInfo(pAd);
-		}
-		else
-		{
-			RTMP_SEM_LOCK(&pAd->StaCtIf.Lock);
-			pAd->StaCtIf.Changeable = FALSE;
-			RTMP_SEM_UNLOCK(&pAd->StaCtIf.Lock);
-		}
-#endif /* CREDENTIAL_STORE */
-#endif /* CONFIG_STA_SUPPORT */
 
 
 
@@ -742,19 +610,8 @@ VOID RTMPDrvClose(
 
 	RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS);
 
-#ifdef EXT_BUILD_CHANNEL_LIST
-	if (pAd->CommonCfg.pChDesp != NULL)
-		os_free_mem(NULL, pAd->CommonCfg.pChDesp);
-	pAd->CommonCfg.pChDesp = NULL;
-	pAd->CommonCfg.DfsType = MAX_RD_REGION;
-	pAd->CommonCfg.bCountryFlag = 0;
-#endif /* EXT_BUILD_CHANNEL_LIST */
 
 
-
-#ifdef WDS_SUPPORT
-	WdsDown(pAd);
-#endif /* WDS_SUPPORT */
 
 	for (i = 0 ; i < NUM_OF_TX_RING; i++)
 	{
@@ -766,7 +623,7 @@ VOID RTMPDrvClose(
 	}
 	
 #ifdef RTMP_MAC_USB
-	RtmpOsUsbEmptyUrbCheck(&pAd->wait, &pAd->BulkInLock, &pAd->PendingRx);
+	RtmpOsUsbEmptyUrbCheck(&pAd->wait, &pAd->BulkInLock, pAd->PendingRx);
 
 #endif /* RTMP_MAC_USB */
 
@@ -782,12 +639,11 @@ VOID RTMPDrvClose(
 	IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
 	{
 		MacTableReset(pAd);
-#if defined(WOW_SUPPORT) && defined(RTMP_MAC_USB) && defined(WOW_IFDOWN_SUPPORT)
-		if (pAd->WOW_Cfg.bEnable == TRUE)
-			RT28xxUsbAsicWOWEnable(pAd);
-		else
-#endif /* WOW_SUPPORT */
-			MlmeRadioOff(pAd);
+#ifdef LED_CONTROL_SUPPORT
+		RTMPSetLED(pAd, LED_LINK_DOWN);
+#endif /* LED_CONTROL_SUPPORT */
+
+		MlmeRadioOff(pAd);
 	}
 #endif /* CONFIG_STA_SUPPORT */
 
@@ -803,8 +659,20 @@ VOID RTMPDrvClose(
 	/* Close kernel threads*/
 	RtmpMgmtTaskExit(pAd);
 
+#if 0
+	{
+		PBF_SYS_CTRL_STRUC PbfSysCtrl = {{0}};
+		DBGPRINT(RT_DEBUG_TRACE, ("%s::  Reset MCU !!!\n", __FUNCTION__));
+		/* Reset MCU */
+		RTMP_IO_READ32(pAd, PBF_SYS_CTRL, &PbfSysCtrl.word);
+		PbfSysCtrl.field.MCU_RESET = 1;
+		RTMP_IO_WRITE32(pAd, PBF_SYS_CTRL, PbfSysCtrl.word);
 
-
+		/* Clear MCU mapping memory */
+		for (i=0; i<8192; i=i+4)
+			RTMP_IO_WRITE32(pAd, FIRMWARE_IMAGE_BASE + i, 0x0);
+	}
+#endif
 	/* Free IRQ*/
 	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_IN_USE))
 	{
@@ -837,13 +705,6 @@ VOID RTMPDrvClose(
 #ifdef CONFIG_STA_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
 	{
-#ifdef RT35xx
-		if (IS_RT3572(pAd))
-		{
-			RT30xxWriteRFRegister(pAd, RF_R08, 0x00);
-			AsicSendCommandToMcu(pAd, 0x30, 0xff, 0xff, 0x02, FALSE);
-		}
-#endif /* RT35xx */
 	}
 #endif /* CONFIG_STA_SUPPORT */
 
@@ -854,14 +715,6 @@ VOID RTMPDrvClose(
 	/* release all timers */
 	RTMPusecDelay(2000);
 	RTMP_TimerListRelease(pAd);
-
-#ifdef CONFIG_MULTI_CHANNEL
-	MultiChannelThreadExit(pAd);
-#endif /* CONFIG_MULTI_CHANNEL */
-
-#ifdef RTMP_TIMER_TASK_SUPPORT
-	NdisFreeSpinLock(&pAd->TimerQLock);
-#endif /* RTMP_TIMER_TASK_SUPPORT */
 }
 
 
@@ -913,9 +766,6 @@ VOID RTMPInfClose(
 #endif /* QOS_DLS_SUPPORT */
 
 		if (INFRA_ON(pAd) &&
-#if defined(WOW_SUPPORT) && defined(RTMP_MAC_USB) && defined(WOW_IFDOWN_SUPPORT) /* In WOW state, can't issue disassociation reqeust */
-			pAd->WOW_Cfg.bEnable == FALSE &&
-#endif /* WOW_SUPPORT */
 			(!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)))
 		{
 			MLME_DISASSOC_REQ_STRUCT	DisReq;
@@ -1016,13 +866,157 @@ static void	WriteConfToDatFile(
 	char			*offset = 0;
 	PSTRING			pTempStr = 0;
 //	INT				tempStrLen = 0;
+#ifdef ANDROID_SUPPORT
+	PSTRING		wpa_supp_conf_file_name = NULL;
+	RTMP_OS_FD	wpa_supp_conf_file_r;
+	char		*wpaConfData;
+	char		*conf_offset_start;
+	PSTRING		pConfTempStr;
+	LONG		rv1, wpa_supp_conf_file_len = 0;
+#endif
+
 
 	DBGPRINT(RT_DEBUG_TRACE, ("-----> WriteConfToDatFile\n"));
 
+#ifdef RTMP_RBUS_SUPPORT
+	if (pAd->infType == RTMP_DEV_INF_RBUS)
+		fileName = STA_PROFILE_PATH_RBUS;
+	else
+#endif /* RTMP_RBUS_SUPPORT */
 		fileName = STA_PROFILE_PATH;
+
+#ifdef	ANDROID_SUPPORT
+	wpa_supp_conf_file_name = ANDROID_WPA_SUPPLICANT_CONF_PATH;
+#endif
 
 	RtmpOSFSInfoChange(&osFSInfo, TRUE);
 
+#ifdef	ANDROID_SUPPORT
+	wpa_supp_conf_file_r = RtmpOSFileOpen(wpa_supp_conf_file_name, O_RDONLY, 0);
+	if (IS_FILE_OPEN_ERR(wpa_supp_conf_file_r)) 
+	{
+		DBGPRINT(RT_DEBUG_TRACE, ("-->1) %s: Error opening file %s\n", __func__, wpa_supp_conf_file_name));
+		return;
+	}
+	else 
+	{
+		char tempConfStr[64] = {0};
+		while((rv1 = RtmpOSFileRead(wpa_supp_conf_file_r, tempConfStr, 64)) > 0)
+		{
+			wpa_supp_conf_file_len += rv1;
+		}
+		os_alloc_mem(NULL, (UCHAR **)&wpaConfData, wpa_supp_conf_file_len);
+		if (wpaConfData == NULL)
+		{
+			RtmpOSFileClose(wpa_supp_conf_file_r);
+			DBGPRINT(RT_DEBUG_TRACE, ("wpaConfData kmalloc fail. (wpa_supp_conf_file_len = %ld)\n", wpa_supp_conf_file_len));
+			goto out;
+		}
+		NdisZeroMemory(wpaConfData, wpa_supp_conf_file_len);
+		RtmpOSFileSeek(wpa_supp_conf_file_r, 0);
+		rv1 = RtmpOSFileRead(wpa_supp_conf_file_r, (PSTRING)wpaConfData, wpa_supp_conf_file_len);
+		RtmpOSFileClose(wpa_supp_conf_file_r);
+		if (rv1 != wpa_supp_conf_file_len)
+		{
+			DBGPRINT(RT_DEBUG_TRACE, ("wpaConfData kmalloc fail, wpa_supp_conf_file_len = %ld\n", wpa_supp_conf_file_len));
+			goto ReadErr;
+		}
+	}
+
+	conf_offset_start = (PCHAR)rtstrstr((PSTRING)wpaConfData, "ctrl_interface");
+	conf_offset_start += strlen("ctrl_interface");
+	os_alloc_mem(NULL, (UCHAR **)&pConfTempStr, 512);
+	if (!pConfTempStr)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, ("pConfTempStr kmalloc fail. (512)\n"));
+		goto WriteErr;
+	}
+
+	volatile static int found_count = 0;
+	PSTRING 	wpapsk_key;
+	os_alloc_mem(NULL, (UCHAR **)&wpapsk_key, 64);
+	for (;;)
+	{
+
+		int i = 0;
+		PSTRING conf_ptr;
+
+		NdisZeroMemory(pConfTempStr, 512);
+		conf_ptr = (PSTRING)conf_offset_start;
+		while(*conf_ptr && *conf_ptr != '\n')
+		{
+			pConfTempStr[i++] = *conf_ptr++;
+		}
+		pConfTempStr[i] = 0x00;
+
+		char *find;
+		if ((size_t)(conf_offset_start - wpaConfData) < wpa_supp_conf_file_len)
+		{
+			conf_offset_start += strlen(pConfTempStr) + 1;
+			if ((find = strstr(pConfTempStr, "ssid=")) != NULL)
+			{
+				if (!strncmp(pAd->CommonCfg.Ssid, (find+6), pAd->CommonCfg.SsidLen)) {
+					found_count = 1;
+					printk("found_count = %d\n", found_count);
+				}
+			}
+			else if (((find = strstr(pConfTempStr, "key_mgmt=WPA-PSK")) != NULL) && 
+				 (found_count == 1) && 
+				 (pAd->StaCfg.AuthMode >= Ndis802_11AuthModeWPAPSK)){
+				found_count = 2;
+				printk("found_count = %d\n", found_count);
+			}
+			else if (((find = strstr(pConfTempStr, "psk=")) != NULL) &&
+				 (found_count == 2) &&
+				 (pAd->StaCfg.AuthMode >= Ndis802_11AuthModeWPAPSK)) {
+				NdisZeroMemory(wpapsk_key, 64);
+				strncpy((char *)wpapsk_key, (const char *)(find+5), (size_t)(strlen(find)-6));
+				found_count = 0;
+				printk("wpapsk_key = %s\n", wpapsk_key);
+			}
+			else if (((find = strstr(pConfTempStr, "wep_key0=")) != NULL) &&
+				 (found_count == 1) &&
+				 (pAd->StaCfg.WepStatus == Ndis802_11WEPEnabled) &&
+				 (pAd->StaCfg.DefaultKeyId == 0)){
+				NdisZeroMemory(wpapsk_key, 64);
+				strncpy((char *)wpapsk_key, (const char *)(find+9), (size_t)(strlen(find)-9));
+				printk("wep_key case, wpapsk_key = %s\n", wpapsk_key);
+				found_count = 0;
+			}
+			else if (((find = strstr(pConfTempStr, "wep_key1=")) != NULL) &&
+                                 (found_count == 1) &&
+                                 (pAd->StaCfg.WepStatus == Ndis802_11WEPEnabled) && 
+                                 (pAd->StaCfg.DefaultKeyId == 1)){
+				NdisZeroMemory(wpapsk_key, 64);
+                                strncpy((char *)wpapsk_key, (const char *)(find+9), (size_t)(strlen(find)-9));
+                                printk("wep_key case, wpapsk_key = %s\n", wpapsk_key);
+				found_count = 0;
+                        }
+			else if (((find = strstr(pConfTempStr, "wep_key2=")) != NULL) &&
+                                 (found_count == 1) &&
+                                 (pAd->StaCfg.WepStatus == Ndis802_11WEPEnabled) && 
+                                 (pAd->StaCfg.DefaultKeyId == 2)){
+				NdisZeroMemory(wpapsk_key, 64);
+                                strncpy((char *)wpapsk_key, (const char *)(find+9), (size_t)(strlen(find)-9));
+                                printk("wep_key case, wpapsk_key = %s\n", wpapsk_key);
+				found_count = 0;
+                        }
+			else if (((find = strstr(pConfTempStr, "wep_key3=")) != NULL) &&
+                                 (found_count == 1) &&
+                                 (pAd->StaCfg.WepStatus == Ndis802_11WEPEnabled) && 
+                                 (pAd->StaCfg.DefaultKeyId == 3)){
+				NdisZeroMemory(wpapsk_key, 64);
+                                strncpy((char *)wpapsk_key, (const char *)(find+9), (size_t)(strlen(find)-9));
+                                printk("wep_key case, wpapsk_key = %s\n", wpapsk_key);
+				found_count = 0;
+                        }
+		}
+                else
+                {
+			break;
+                }
+	}
+#endif
 	file_r = RtmpOSFileOpen(fileName, O_RDONLY, 0);
 	if (IS_FILE_OPEN_ERR(file_r)) 
 	{
@@ -1093,6 +1087,14 @@ static void	WriteConfToDatFile(
 					NdisMoveMemory(pTempStr, "SSID=", strlen("SSID="));
 					NdisMoveMemory(pTempStr + 5, pAd->CommonCfg.Ssid, pAd->CommonCfg.SsidLen);
 				}
+				else if (strncmp(pTempStr, "WPAPSK=", strlen("WPAPSK=")) == 0)
+				{
+					if (pAd->StaCfg.AuthMode >= Ndis802_11AuthModeWPAPSK){
+						NdisZeroMemory(pTempStr, 512);
+						NdisMoveMemory(pTempStr, "WPAPSK=", strlen("WPAPSK="));
+						NdisCopyMemory(pTempStr + 7, wpapsk_key, strlen(wpapsk_key));
+					}
+				}
 				else if (strncmp(pTempStr, "AuthMode=", strlen("AuthMode=")) == 0)
 				{
 					NdisZeroMemory(pTempStr, 512);
@@ -1125,6 +1127,52 @@ static void	WriteConfToDatFile(
 					else if (pAd->StaCfg.WepStatus == Ndis802_11Encryption3Enabled)
 						sprintf(pTempStr, "EncrypType=AES");
 				}
+				else if (strncmp(pTempStr, "DefaultKeyID=", strlen("DefaultKeyID=")) == 0)
+                                {
+                                        if (pAd->StaCfg.WepStatus == Ndis802_11WEPEnabled){
+                                                NdisZeroMemory(pTempStr, 512);
+						if (pAd->StaCfg.DefaultKeyId == 0)
+	                                                NdisMoveMemory(pTempStr, "DefaultKeyID=1", strlen("DefaultKeyID=1"));
+						if (pAd->StaCfg.DefaultKeyId == 1)
+                                                        NdisMoveMemory(pTempStr, "DefaultKeyID=2", strlen("DefaultKeyID=2"));
+						if (pAd->StaCfg.DefaultKeyId == 2)
+                                                        NdisMoveMemory(pTempStr, "DefaultKeyID=3", strlen("DefaultKeyID=3"));
+						if (pAd->StaCfg.DefaultKeyId == 3)
+                                                        NdisMoveMemory(pTempStr, "DefaultKeyID=4", strlen("DefaultKeyID=4"));
+					}
+                                }
+				else if (strncmp(pTempStr, "Key1Str=", strlen("Key1Str=")) == 0)
+                                {	printk("KEY1");
+					if (pAd->StaCfg.DefaultKeyId==0){
+                                        	NdisZeroMemory(pTempStr, 512);
+						NdisMoveMemory(pTempStr, "Key1Str=", strlen("Key1Str="));
+	                                        NdisCopyMemory(pTempStr + 8, wpapsk_key, strlen(wpapsk_key));
+					}
+                                }
+				else if (strncmp(pTempStr, "Key2Str=", strlen("Key2Str=")) == 0)
+                                {	printk("KEY2");
+                                        if (pAd->StaCfg.DefaultKeyId==1){
+                                                NdisZeroMemory(pTempStr, 512);
+                                                NdisMoveMemory(pTempStr, "Key2Str=", strlen("Key2Str="));
+                                                NdisCopyMemory(pTempStr + 8, wpapsk_key, strlen(wpapsk_key));
+					}
+                                }
+				else if (strncmp(pTempStr, "Key3Str=", strlen("Key3Str=")) == 0)
+                                {	printk("KEY3");
+                                        if (pAd->StaCfg.DefaultKeyId==2){
+                                                NdisZeroMemory(pTempStr, 512);
+                                                NdisMoveMemory(pTempStr, "Key3Str=", strlen("Key3Str="));
+                                                NdisCopyMemory(pTempStr + 8, wpapsk_key, strlen(wpapsk_key));
+					}
+                                }
+				else if (strncmp(pTempStr, "Key4Str=", strlen("Key4Str=")) == 0)
+                                {	printk("KEY4");
+                                        if (pAd->StaCfg.DefaultKeyId==3){
+                                                NdisZeroMemory(pTempStr, 512);
+                                                NdisMoveMemory(pTempStr, "Key4Str=", strlen("Key4Str="));
+                                                NdisCopyMemory(pTempStr + 8, wpapsk_key, strlen(wpapsk_key));
+					}
+                                }
 				RtmpOSFileWrite(file_w, pTempStr, strlen(pTempStr));
 				RtmpOSFileWrite(file_w, "\n", 1);
 			}
@@ -1133,15 +1181,20 @@ static void	WriteConfToDatFile(
 				break;
 			}
 		}
-		RtmpOSFileClose(file_w);
 	}
 
-WriteErr:   
+WriteErr:
+	if (pConfTempStr)
+		os_free_mem(NULL, pConfTempStr);
 	if (pTempStr)
 /*		kfree(pTempStr); */
 		os_free_mem(NULL, pTempStr);
 ReadErr:
-WriteFileOpenErr:    
+WriteFileOpenErr:
+	if (wpapsk_key)
+		os_free_mem(NULL, wpapsk_key);
+	if (wpaConfData)
+		os_free_mem(NULL, wpaConfData);
 	if (cfgData)
 /*		kfree(cfgData); */
 		os_free_mem(NULL, cfgData);

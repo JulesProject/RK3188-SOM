@@ -31,16 +31,15 @@
 #include "rtmp_comm.h"
 #include "rt_os_util.h"
 #include "rt_os_net.h"
+#include "rt_config.h"
+#include "rtmp.h"
 
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
-static DECLARE_MUTEX(rtusb_module_mutex);
-#else
-static DEFINE_SEMAPHORE(rtusb_module_mutex);
-#endif
-
-static int rtusb_disconnect_by_rmmod = 0;
-
+/* add by sw start*/
+//#include <plat/sys_config.h>
+extern int sw_usb_disable_hcd(__u32 usbc_no);
+extern int sw_usb_enable_hcd(__u32 usbc_no);
+static int usb_wifi_host = 2;
+/* add by sw end*/
 
 /* Following information will be show when you run 'modinfo' */
 /* *** If you have a solution for the bug in current version of driver, please mail to me. */
@@ -57,6 +56,7 @@ MODULE_VERSION(STA_DRIVER_VERSION);
 
 extern USB_DEVICE_ID rtusb_dev_id[];
 extern INT const rtusb_usb_id_len;
+static BOOLEAN	late_resume_flag = FALSE;
 
 static void rt2870_disconnect(
 	IN struct usb_device *dev, 
@@ -194,19 +194,7 @@ static void *rtusb_probe(struct usb_device *dev, UINT interface,
 /*Disconnect function is called within exit routine */
 static void rtusb_disconnect(struct usb_device *dev, void *ptr)
 {
-	int lockResult;
-
-	lockResult = down_trylock(&rtusb_module_mutex);
-	if( (lockResult == 0) || (rtusb_disconnect_by_rmmod == 1))
-	{
-		rt2870_disconnect(dev, ptr);
-		if (lockResult == 0)
-			up(&rtusb_module_mutex);
-	}
-	else
-	{
-		DBGPRINT(RT_DEBUG_WARN, ("%s():acquire module mutex failed\n", __FUNCTION__));
-	}
+	rt2870_disconnect(dev, ptr);
 }
 
 
@@ -228,6 +216,54 @@ static void rtusb_disconnect(struct usb_device *dev, void *ptr)
 static int rt2870_suspend(struct usb_interface *intf, pm_message_t state);
 static int rt2870_resume(struct usb_interface *intf);
 #endif /* CONFIG_PM */
+
+
+/*--------------------------------------------------------------------- */
+/* function declarations                                                                                                */
+/*--------------------------------------------------------------------- */
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void rt2870_early_suspend(struct early_suspend *early)
+{
+        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
+}
+
+static void rt2870_late_resume(struct early_suspend *early)
+{
+        PRTMP_ADAPTER   pAd = container_of(early, RTMP_ADAPTER, early_suspend);
+        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
+
+	if (late_resume_flag == TRUE){
+		printk("late_resume_flag is TRUE!!!\n");
+		if (VIRTUAL_IF_UP((VOID *)pAd) != 0)
+                {
+			printk("%s, VIRTUAL_IF_UP != 0, WTF!!!!\n", __func__);
+                }
+		late_resume_flag = FALSE;
+	}
+}
+
+void RTRegisterEarlySuspend(PRTMP_ADAPTER    pAd)
+{
+        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
+        pAd->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+        pAd->early_suspend.suspend = rt2870_early_suspend;
+        pAd->early_suspend.resume = rt2870_late_resume;
+        register_early_suspend(&pAd->early_suspend);
+}
+
+void RTUnregisterEarlySuspend(PRTMP_ADAPTER  pAd)
+{
+        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
+        late_resume_flag = FALSE;
+
+        if (pAd->early_suspend.suspend)
+                unregister_early_suspend(&pAd->early_suspend);
+
+        pAd->early_suspend.suspend = NULL;
+        pAd->early_suspend.resume = NULL;
+}
+#endif
 
 static int rtusb_probe (struct usb_interface *intf,
 						const USB_DEVICE_ID *id);
@@ -322,18 +358,19 @@ static int rtusb_probe (struct usb_interface *intf,
 	{
 		usb_put_dev(dev);
 	}
-#ifdef IFUP_IN_PROBE
+#if 0
 	else
-	{
-		if (VIRTUAL_IF_UP(pAd) != 0)
-		{
-			pAd = usb_get_intfdata(intf);
-			usb_set_intfdata(intf, NULL);
-			rt2870_disconnect(dev, pAd);
-			rv = -ENOMEM;
-		}
-	}
-#endif /* IFUP_IN_PROBE */	
+ 	{
+   		if (VIRTUAL_IF_UP(pAd) != 0)
+   		{
+                     pAd = usb_get_intfdata(intf);
+                     usb_set_intfdata(intf, NULL);
+                     rt2870_disconnect(dev, pAd);
+     			rv = -ENOMEM;
+   		}
+ 	}
+#endif
+	
 	return rv;
 }
 
@@ -342,41 +379,30 @@ static void rtusb_disconnect(struct usb_interface *intf)
 {
 	struct usb_device   *dev = interface_to_usbdev(intf);
 	VOID				*pAd;
-	int lockResult;
 
-	lockResult = down_trylock(&rtusb_module_mutex);
-	if( (lockResult == 0) || (rtusb_disconnect_by_rmmod == 1))
-	{
-		DBGPRINT(RT_DEBUG_WARN, ("%s():lockResult=%d, rmmod=%d!\n",
-					__FUNCTION__, lockResult, rtusb_disconnect_by_rmmod));
 
-		pAd = usb_get_intfdata(intf);
-#ifdef IFUP_IN_PROBE	
-		VIRTUAL_IF_DOWN(pAd);
-#endif /* IFUP_IN_PROBE */	
-		usb_set_intfdata(intf, NULL);	
+	pAd = usb_get_intfdata(intf);
+	//VIRTUAL_IF_DOWN(pAd);
+	usb_set_intfdata(intf, NULL);	
 
-		rt2870_disconnect(dev, pAd);
-		if (lockResult == 0)
-                        up(&rtusb_module_mutex);
-	}
-	else
-	{
-		DBGPRINT(RT_DEBUG_WARN, ("%s():acquire module mutex failed\n", __FUNCTION__));
-	}
+	rt2870_disconnect(dev, pAd);
 
 #ifdef CONFIG_PM
 #ifdef USB_SUPPORT_SELECTIVE_SUSPEND
-	printk("rtusb_disconnect usb_autopm_put_interface \n");
-	usb_autopm_put_interface(intf);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)	 
-	printk(" ^^rt2870_disconnect ====> pm_usage_cnt %d \n", atomic_read(&intf->pm_usage_cnt));
+	    printk("rtusb_disconnect usb_autopm_put_interface \n");
+
+	    usb_autopm_put_interface(intf);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+	 printk(" ^^rt2870_disconnect ====> pm_usage_cnt %d \n", atomic_read(&intf->pm_usage_cnt));
 #else
-	printk(" rt2870_disconnect ====> pm_usage_cnt %d \n", intf->pm_usage_cnt);
+	 printk(" rt2870_disconnect ====> pm_usage_cnt %d \n", intf->pm_usage_cnt);
 #endif
+	
+
 #endif /* USB_SUPPORT_SELECTIVE_SUSPEND */
 #endif /* CONFIG_PM */
-	
+
 }
 
 
@@ -418,35 +444,46 @@ static int rt2870_suspend(
 	struct net_device *net_dev;
 	VOID *pAd = usb_get_intfdata(intf);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	UCHAR check_early_suspend_flag;
-	RTMP_DRIVER_ADAPTER_CHECK_EARLYSUSPEND(pAd, &check_early_suspend_flag);
-	if (check_early_suspend_flag == TRUE){
-		VIRTUAL_IF_DOWN(pAd);
+	late_resume_flag = TRUE;
+
+#ifdef USB_SUPPORT_SELECTIVE_SUSPEND
+	UCHAR Flag;
+#endif	
+#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_ANDROID_POWER)
+	if ((RT_IS_EARLYSUSPEND_REGISTERED((PRTMP_ADAPTER)pAd)) && (late_resume_flag == TRUE)){
+		VIRTUAL_IF_DOWN((VOID *)pAd);
 		DBGPRINT(RT_DEBUG_OFF, ("%s, We has already register earlysuspend, make VIRTUAL_IF_DOWN\n", __func__));
 		return 0;
 	}
 #endif
 #ifdef USB_SUPPORT_SELECTIVE_SUSPEND
-	UCHAR Flag;
+//	UCHAR Flag;
 	DBGPRINT(RT_DEBUG_ERROR, ("autosuspend===> rt2870_suspend()\n"));
-	{
+/*	RtmpOSWrielessEventSend(pAd->net_dev, RT_WLAN_EVENT_CGIWAP, -1, NULL, NULL, 0);*/
+	RTMP_DRIVER_ADAPTER_END_DISSASSOCIATE(pAd);
+
 /*	if(!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_IDLE_RADIO_OFF)) */
-		RTMP_DRIVER_ADAPTER_END_DISSASSOCIATE(pAd);
-		RTMP_DRIVER_ADAPTER_IDLE_RADIO_OFF_TEST(pAd, &Flag);
-		if(!Flag)
-		{
-			/*RT28xxUsbAsicRadioOff(pAd); */
-			RTMP_DRIVER_ADAPTER_RT28XX_USB_ASICRADIO_OFF(pAd);
-		}
+	RTMP_DRIVER_ADAPTER_IDLE_RADIO_OFF_TEST(pAd, &Flag);
+	if(!Flag)
+	{
+		/*RT28xxUsbAsicRadioOff(pAd); */
+		RTMP_DRIVER_ADAPTER_RT28XX_USB_ASICRADIO_OFF(pAd);
+
+		/*RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_CPU_SUSPEND); */
+		RTMP_DRIVER_ADAPTER_CPU_SUSPEND_SET(pAd);
 	}
-	/*RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_SUSPEND); */
-	RTMP_DRIVER_ADAPTER_SUSPEND_SET(pAd);
+		/*RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_SUSPEND); */
+		RTMP_DRIVER_ADAPTER_SUSPEND_SET(pAd);
+	DBGPRINT(RT_DEBUG_ERROR, ("autosuspend <=== rt2870_suspend()\n"));
 	return 0;
 #endif /* USB_SUPPORT_SELECTIVE_SUSPEND */
 
 
 	DBGPRINT(RT_DEBUG_TRACE, ("===> rt2870_suspend()\n"));
+//	RtmpOSWrielessEventSend(pAd->net_dev, RT_WLAN_EVENT_CGIWAP, -1, NULL, NULL, 0);
+//	RTMP_DRIVER_ADAPTER_END_DISSASSOCIATE(pAd);
+
+//	RTMP_DRIVER_ADAPTER_RT28XX_USB_ASICRADIO_OFF(pAd);
 /*	net_dev = pAd->net_dev; */
 	RTMP_DRIVER_NET_DEV_GET(pAd, &net_dev);
 	netif_device_detach(net_dev);
@@ -461,45 +498,67 @@ static int rt2870_resume(
 {
 	struct net_device *net_dev;
 	VOID *pAd = usb_get_intfdata(intf);
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	UCHAR check_early_suspend_flag;
-	RTMP_DRIVER_ADAPTER_CHECK_EARLYSUSPEND(pAd, &check_early_suspend_flag);
-	if (check_early_suspend_flag == TRUE){
-		DBGPRINT(RT_DEBUG_OFF, ("%s, We has already register earlysuspend, do nothing here\n", __func__));
+
+#ifdef USB_SUPPORT_SELECTIVE_SUSPEND
+	struct usb_device		*pUsb_Dev;
+	UCHAR Flag;
+	INT 		pm_usage_cnt;
+#endif
+
+#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_ANDROID_POWER)
+	if ((RT_IS_EARLYSUSPEND_REGISTERED((PRTMP_ADAPTER)pAd)) && (late_resume_flag == TRUE)){
+		DBGPRINT(RT_DEBUG_OFF, ("%s, We has already register earlysuspend, call VIRTUAL_IF_UP\n", __func__));
 		return 0;
 	}
 #endif
 
 #ifdef USB_SUPPORT_SELECTIVE_SUSPEND
-	INT 		pm_usage_cnt;
-	UCHAR Flag;
+//	struct usb_device		*pUsb_Dev;
+//	UCHAR Flag;
+//	INT 		pm_usage_cnt;
+
+	RTMP_DRIVER_USB_DEV_GET(pAd, &pUsb_Dev);
+	RTMP_DRIVER_USB_INTF_GET(pAd, &intf);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
 	pm_usage_cnt = atomic_read(&intf->pm_usage_cnt);	
 #else
 	pm_usage_cnt = intf->pm_usage_cnt;
 #endif
+#if 0
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33)
+	if(pUsb_Dev->autosuspend_disabled == 0)
+#else
+	if(pUsb_Dev->auto_pm == 1)
+#endif
+#endif
+	{
+		if(pm_usage_cnt  <= 0)
+			usb_autopm_get_interface(intf);
 
-	if(pm_usage_cnt  <= 0)
-		usb_autopm_get_interface(intf);
-
+	}
 	DBGPRINT(RT_DEBUG_ERROR, ("autosuspend===> rt2870_resume()\n"));
-
 	/*RTMP_CLEAR_FLAG(pAd, fRTMP_ADAPTER_SUSPEND); */
 	RTMP_DRIVER_ADAPTER_SUSPEND_CLEAR(pAd);
 
-		/*RT28xxUsbAsicRadioOn(pAd); */
-		RTMP_DRIVER_ADAPTER_RT28XX_USB_ASICRADIO_ON(pAd);
+	RTMP_DRIVER_ADAPTER_CPU_SUSPEND_TEST(pAd, &Flag);
+	if(Flag)
+	/*if(RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_CPU_SUSPEND)) */
+	{
+		/*RTMP_CLEAR_FLAG(pAd, fRTMP_ADAPTER_CPU_SUSPEND); */
+		RTMP_DRIVER_ADAPTER_CPU_SUSPEND_CLEAR(pAd);
+	}
 
+	/*RT28xxUsbAsicRadioOn(pAd); */
+	RTMP_DRIVER_ADAPTER_RT28XX_USB_ASICRADIO_ON(pAd);
 	DBGPRINT(RT_DEBUG_ERROR, ("autosuspend<===  rt2870_resume()\n"));
-
 	return 0;
 #endif /* USB_SUPPORT_SELECTIVE_SUSPEND */
 
 
 	DBGPRINT(RT_DEBUG_TRACE, ("===> rt2870_resume()\n"));
-
 /*	pAd->PM_FlgSuspend = 0; */
+	//RTMP_DRIVER_ADAPTER_RT28XX_USB_ASICRADIO_ON(pAd);
 	RTMP_DRIVER_USB_RESUME(pAd);
 
 /*	net_dev = pAd->net_dev; */
@@ -519,20 +578,29 @@ static int rt2870_resume(
 /* Init driver module */
 INT __init rtusb_init(void)
 {
+	int ret = 0;
+	
 	printk("rtusb init %s --->\n", RTMP_DRV_NAME);
+#if 0
+	ret = script_parser_fetch("usb_wifi_para", "usb_wifi_usbc_num", (int *)&usb_wifi_host, 64);
+	if(ret != 0){
+		printk("ERR: script_parser_fetch usb_wifi_usbc_num failed\n");
+		ret = -ENOMEM;
+		return ret;
+	}
+#endif
 
-	sema_init(&rtusb_module_mutex, 1);
-	rtusb_disconnect_by_rmmod = 0;
 
+	
 #ifdef RESOURCE_BOOT_ALLOC
 {
-        int status;
-        status = rtusb_resource_init(rtusb_tx_buf_len, rtusb_rx_buf_len, rtusb_tx_buf_cnt, rtusb_rx_buf_cnt);
-        if (status)
-        {
-                printk("resource allocate failed, don't register driver!\n");
-                return -1;
-        }
+	int status;
+	status = rtusb_resource_init(rtusb_tx_buf_len, rtusb_rx_buf_len, rtusb_tx_buf_cnt, rtusb_rx_buf_cnt);
+	if (status)
+	{
+		printk("resource allocate failed, don't register driver!\n");
+		return -1;
+	}
 }
 #endif /* RESOURCE_BOOT_ALLOC */
 
@@ -542,29 +610,13 @@ INT __init rtusb_init(void)
 /* Deinit driver module */
 VOID __exit rtusb_exit(void)
 {
-	int retval;
-
-	printk("rtusb exit --->\n");
-
-	/*
-		No matter we get the semaphore or not, we still need to unregister it
-		from kernel, should be save enough
-	*/
-	retval = down_interruptible(&rtusb_module_mutex);
-	printk("%s():retval of get module mutex=%d!\n", __FUNCTION__, retval);
-
-	rtusb_disconnect_by_rmmod = 1;
-
 	usb_deregister(&rtusb_driver);	
-
+	
 #ifdef RESOURCE_BOOT_ALLOC
 	rtusb_resource_exit();
-#endif /* RESOURCE_BOOT_ALLOC */
+#endif /* RESOURCE_BOOT_ALLOC */	
 
-	if (retval == 0)
-		up(&rtusb_module_mutex);
-	else
-		printk("%s():Cannot get module mutex, system may not stable!\n", __FUNCTION__);
+
 
 	printk("<--- rtusb exit\n");
 }
@@ -625,7 +677,6 @@ static void rt2870_disconnect(struct usb_device *dev, VOID *pAd)
 
 
 	RTMP_DRIVER_NET_DEV_GET(pAd, &net_dev);
-
 	RtmpPhyNetDevExit(pAd, net_dev);
 
 	/* FIXME: Shall we need following delay and flush the schedule?? */
@@ -636,20 +687,18 @@ static void rt2870_disconnect(struct usb_device *dev, VOID *pAd)
 #endif /* LINUX_VERSION_CODE */
 	udelay(1);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	RTMP_DRIVER_ADAPTER_UNREGISTER_EARLYSUSPEND(pAd);
+#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_ANDROID_POWER)
+	RTUnregisterEarlySuspend((PRTMP_ADAPTER)pAd);
 #endif
+
+	/* free the root net_device */
+	RtmpOSNetDevFree(net_dev);
+
 #ifdef RT_CFG80211_SUPPORT
 	RTMP_DRIVER_80211_UNREGISTER(pAd, net_dev);
 #endif /* RT_CFG80211_SUPPORT */
 
-	/* free the root net_device */
-//	RtmpOSNetDevFree(net_dev);
-
 	RtmpRaDevCtrlExit(pAd);
-
-	/* free the root net_device */
-	RtmpOSNetDevFree(net_dev);
 
 	/* release a use of the usb device structure */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)	/* kernel 2.4 series */
@@ -661,7 +710,7 @@ static void rt2870_disconnect(struct usb_device *dev, VOID *pAd)
 	usb_put_dev(dev);
 #endif /* LINUX_VERSION_CODE */
 	udelay(1);
-
+	
 	DBGPRINT(RT_DEBUG_ERROR, (" RTUSB disconnect successfully\n"));
 }
 
@@ -684,9 +733,12 @@ static int rt2870_probe(
 	INT		 res =1 ; 
 #endif /* USB_SUPPORT_SELECTIVE_SUSPEND */
 #endif /* CONFIG_PM */	
-
-	
-
+/*
+  rt_intf = intf;
+  rt_usb_dev = usb_dev;
+  rt_dev_id = dev_id;
+ *rt_ppAd = ppAd;	
+*/
 	DBGPRINT(RT_DEBUG_TRACE, ("===>rt2870_probe()!\n"));
 	
 #ifdef CONFIG_PM
@@ -804,6 +856,9 @@ static int rt2870_probe(
 
 	*ppAd = pAd;
 
+
+
+
 #ifdef INF_PPA_SUPPORT
 /*	pAd->pDirectpathCb = (PPA_DIRECTPATH_CB *) kmalloc (sizeof(PPA_DIRECTPATH_CB), GFP_ATOMIC); */
 /*	os_alloc_mem(NULL, (UCHAR **)&(pAd->pDirectpathCb), sizeof(PPA_DIRECTPATH_CB)); */
@@ -818,13 +873,10 @@ static int rt2870_probe(
 	RtmpOSNetDevAddrSet(OpMode, net_dev, &PermanentAddress[0], NULL);
 #endif /* PRE_ASSIGN_MAC_ADDR */
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	RTMP_DRIVER_ADAPTER_REGISTER_EARLYSUSPEND(pAd);
+#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_ANDROID_POWER)
+	((PRTMP_ADAPTER)pAd)->early_suspend.suspend = NULL;
+	RTRegisterEarlySuspend(pAd);
 #endif
-
-#ifdef EXT_BUILD_CHANNEL_LIST
-	RTMP_DRIVER_SET_PRECONFIG_VALUE(pAd);
-#endif /* EXT_BUILD_CHANNEL_LIST */
 
 	DBGPRINT(RT_DEBUG_TRACE, ("<===rt2870_probe()!\n"));
 
@@ -845,14 +897,12 @@ err_out:
 }
 
 
+
 #ifdef OS_ABL_SUPPORT
 /* USB complete handlers in LINUX */
 RTMP_DRV_USB_COMPLETE_HANDLER RtmpDrvUsbBulkOutDataPacketComplete = NULL;
 RTMP_DRV_USB_COMPLETE_HANDLER RtmpDrvUsbBulkOutMLMEPacketComplete = NULL;
 RTMP_DRV_USB_COMPLETE_HANDLER RtmpDrvUsbBulkOutNullFrameComplete = NULL;
-#if defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT)
-RTMP_DRV_USB_COMPLETE_HANDLER RtmpDrvUsbBulkOutHCCANullFrameComplete = NULL;
-#endif /* defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT) */
 RTMP_DRV_USB_COMPLETE_HANDLER RtmpDrvUsbBulkOutRTSFrameComplete = NULL;
 RTMP_DRV_USB_COMPLETE_HANDLER RtmpDrvUsbBulkOutPsPollComplete = NULL;
 RTMP_DRV_USB_COMPLETE_HANDLER RtmpDrvUsbBulkRxComplete = NULL;
@@ -871,13 +921,6 @@ USBHST_STATUS RTUSBBulkOutNullFrameComplete(URBCompleteStatus Status, purbb_t pU
 {
 	RtmpDrvUsbBulkOutNullFrameComplete((VOID *)pURB);
 }
-
-#if defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT)
-USBHST_STATUS RTUSBBulkOutHCCANullFrameComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs)
-{
-	RtmpDrvUsbBulkOutHCCANullFrameComplete((VOID *)pURB);
-}
-#endif /* defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT) */
 
 USBHST_STATUS RTUSBBulkOutRTSFrameComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs)
 {
@@ -903,9 +946,6 @@ VOID RtmpNetOpsInit(
 	pDrvNetOps->RtmpNetUsbBulkOutDataPacketComplete = (RTMP_DRV_USB_COMPLETE_HANDLER)RTUSBBulkOutDataPacketComplete;
 	pDrvNetOps->RtmpNetUsbBulkOutMLMEPacketComplete = (RTMP_DRV_USB_COMPLETE_HANDLER)RTUSBBulkOutMLMEPacketComplete;
 	pDrvNetOps->RtmpNetUsbBulkOutNullFrameComplete = (RTMP_DRV_USB_COMPLETE_HANDLER)RTUSBBulkOutNullFrameComplete;
-#if defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT)
-	pDrvNetOps->RtmpNetUsbBulkOutHCCANullFrameComplete = (RTMP_DRV_USB_COMPLETE_HANDLER)RTUSBBulkOutHCCANullFrameComplete;
-#endif /* defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT) */
 	pDrvNetOps->RtmpNetUsbBulkOutRTSFrameComplete = (RTMP_DRV_USB_COMPLETE_HANDLER)RTUSBBulkOutRTSFrameComplete;
 	pDrvNetOps->RtmpNetUsbBulkOutPsPollComplete = (RTMP_DRV_USB_COMPLETE_HANDLER)RTUSBBulkOutPsPollComplete;
 	pDrvNetOps->RtmpNetUsbBulkRxComplete = (RTMP_DRV_USB_COMPLETE_HANDLER)RTUSBBulkRxComplete;
@@ -921,9 +961,6 @@ VOID RtmpNetOpsSet(
 	RtmpDrvUsbBulkOutDataPacketComplete = pDrvNetOps->RtmpDrvUsbBulkOutDataPacketComplete;
 	RtmpDrvUsbBulkOutMLMEPacketComplete = pDrvNetOps->RtmpDrvUsbBulkOutMLMEPacketComplete;
 	RtmpDrvUsbBulkOutNullFrameComplete = pDrvNetOps->RtmpDrvUsbBulkOutNullFrameComplete;
-#if defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT)
-	RtmpDrvUsbBulkOutHCCANullFrameComplete = pDrvNetOps->RtmpDrvUsbBulkOutHCCANullFrameComplete;
-#endif /* defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT) */
 	RtmpDrvUsbBulkOutRTSFrameComplete = pDrvNetOps->RtmpDrvUsbBulkOutRTSFrameComplete;
 	RtmpDrvUsbBulkOutPsPollComplete = pDrvNetOps->RtmpDrvUsbBulkOutPsPollComplete;
 	RtmpDrvUsbBulkRxComplete = pDrvNetOps->RtmpDrvUsbBulkRxComplete;

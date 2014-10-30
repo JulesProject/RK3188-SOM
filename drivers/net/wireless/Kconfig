@@ -223,7 +223,7 @@ config RTL8723AU_LW
 
 source "drivers/net/wireless/rtl8712u/Kconfig"
 source "drivers/net/wireless/rtl8192cu/Kconfig"
-source "drivers/net/wireless/rtxx7x/Kconfig
+source "drivers/net/wireless/rtxx7x/Kconfig"
 
 endif
 

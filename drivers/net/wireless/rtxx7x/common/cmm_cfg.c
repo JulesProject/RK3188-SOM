@@ -27,8 +27,6 @@
 
 #include "rt_config.h"
 
-static BOOLEAN RT_isLegalCmdBeforeInfUp(
-       IN PSTRING SetCmd);
 
 
 INT ComputeChecksum(
@@ -38,13 +36,13 @@ INT ComputeChecksum(
     UINT accum = 0;
 
 	PIN *= 10;
-	accum += 3 * ((PIN / 10000000) % 10); 
-	accum += 1 * ((PIN / 1000000) % 10); 
-	accum += 3 * ((PIN / 100000) % 10); 
-	accum += 1 * ((PIN / 10000) % 10); 
-	accum += 3 * ((PIN / 1000) % 10); 
-	accum += 1 * ((PIN / 100) % 10); 
-	accum += 3 * ((PIN / 10) % 10); 
+	accum += 3 * ((PIN / 10000000) % 10);
+	accum += 1 * ((PIN / 1000000) % 10);
+	accum += 3 * ((PIN / 100000) % 10);
+	accum += 1 * ((PIN / 10000) % 10);
+	accum += 3 * ((PIN / 1000) % 10);
+	accum += 1 * ((PIN / 100) % 10);
+	accum += 3 * ((PIN / 10) % 10);
 
 	digit_s = (accum % 10);
 	return ((10 - digit_s) % 10);
@@ -52,14 +50,12 @@ INT ComputeChecksum(
 
 UINT GenerateWpsPinCode(
 	IN	PRTMP_ADAPTER	pAd,
-    IN  BOOLEAN         bFromApcli,	
+    IN  BOOLEAN         bFromApcli,
 	IN	UCHAR			apidx)
 {
 	UCHAR	macAddr[MAC_ADDR_LEN];
 	UINT 	iPin;
 	UINT	checksum;
-
-	NdisZeroMemory(macAddr, MAC_ADDR_LEN);
 
 #ifdef CONFIG_STA_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
@@ -69,8 +65,6 @@ UINT GenerateWpsPinCode(
 	iPin = macAddr[3] * 256 * 256 + macAddr[4] * 256 + macAddr[5];
 
 	iPin = iPin % 10000000;
-
-	
 	checksum = ComputeChecksum( iPin );
 	iPin = iPin*10 + checksum;
 
@@ -120,44 +114,42 @@ char* GetBW(
 }
 
 
-/* 
+/*
     ==========================================================================
     Description:
         Set Country Region to pAd->CommonCfg.CountryRegion.
         This command will not work, if the field of CountryRegion in eeprom is programmed.
-        
+
     Return:
         TRUE if all parameters are OK, FALSE otherwise
     ==========================================================================
 */
 INT RT_CfgSetCountryRegion(
-	IN PRTMP_ADAPTER	pAd, 
+	IN PRTMP_ADAPTER	pAd,
 	IN PSTRING			arg,
 	IN INT				band)
 {
 	LONG region;
 	UCHAR *pCountryRegion;
-	
+
 	region = simple_strtol(arg, 0, 10);
 
 	if (band == BAND_24G)
 		pCountryRegion = &pAd->CommonCfg.CountryRegion;
 	else
 		pCountryRegion = &pAd->CommonCfg.CountryRegionForABand;
-	
-    /*
-               1. If this value is set before interface up, do not reject this value.
-               2. Country can be set only when EEPROM not programmed
-    */
-    if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_IN_USE) && (*pCountryRegion & EEPROM_IS_PROGRAMMED))
+
+	/* TODO: Is it neccesay for following check???*/
+	/* Country can be set only when EEPROM not programmed*/
+	if (*pCountryRegion & 0x80)
 	{
 		DBGPRINT(RT_DEBUG_ERROR, ("CfgSetCountryRegion():CountryRegion in eeprom was programmed\n"));
 		return FALSE;
 	}
 
-	if((region >= 0) && 
-	   (((band == BAND_24G) &&((region <= REGION_MAXIMUM_BG_BAND) || 
-	   (region == REGION_31_BG_BAND) || (region == REGION_32_BG_BAND) || (region == REGION_33_BG_BAND) )) || 
+	if((region >= 0) &&
+	   (((band == BAND_24G) &&((region <= REGION_MAXIMUM_BG_BAND) ||
+	   (region == REGION_31_BG_BAND) || (region == REGION_32_BG_BAND) || (region == REGION_33_BG_BAND) )) ||
 	    ((band == BAND_5G) && (region <= REGION_MAXIMUM_A_BAND) ))
 	  )
 	{
@@ -170,11 +162,11 @@ INT RT_CfgSetCountryRegion(
 	}
 
 	return TRUE;
-	
+
 }
 
 
-/* 
+/*
     ==========================================================================
     Description:
         Set Wireless Mode
@@ -183,12 +175,12 @@ INT RT_CfgSetCountryRegion(
     ==========================================================================
 */
 INT RT_CfgSetWirelessMode(
-	IN	PRTMP_ADAPTER	pAd, 
+	IN	PRTMP_ADAPTER	pAd,
 	IN	PSTRING			arg)
 {
 	INT		MaxPhyMode = PHY_11G;
 	LONG	WirelessMode;
-	
+
 #ifdef DOT11_N_SUPPORT
 	if (!RTMP_TEST_MORE_FLAG(pAd, fRTMP_ADAPTER_DISABLE_DOT_11N))
 		MaxPhyMode = PHY_11N_5G;
@@ -214,40 +206,17 @@ INT RT_CfgSetWirelessMode(
 		pAd->CommonCfg.DesiredPhyMode = WirelessMode;
 		return TRUE;
 	}
-	
+
 	return FALSE;
-	
+
 }
 
 
 /* maybe can be moved to GPL code, ap_mbss.c, but the code will be open */
 
 
-static BOOLEAN RT_isLegalCmdBeforeInfUp(
-       IN PSTRING SetCmd)
-{
-		BOOLEAN TestFlag;
-		TestFlag =	!strcmp(SetCmd, "Debug") ||
-#ifdef CONFIG_APSTA_MIXED_SUPPORT
-					!strcmp(SetCmd, "OpMode") ||
-#endif /* CONFIG_APSTA_MIXED_SUPPORT */
-#ifdef EXT_BUILD_CHANNEL_LIST
-					!strcmp(SetCmd, "CountryCode") ||
-					!strcmp(SetCmd, "DfsType") ||
-					!strcmp(SetCmd, "ChannelListAdd") ||
-					!strcmp(SetCmd, "ChannelListShow") ||
-					!strcmp(SetCmd, "ChannelListDel") ||
-#endif /* EXT_BUILD_CHANNEL_LIST */
-#ifdef SINGLE_SKU
-					!strcmp(SetCmd, "ModuleTxpower") ||
-#endif /* SINGLE_SKU */
-					FALSE; /* default */
-       return TestFlag;
-}
-
-
 INT RT_CfgSetShortSlot(
-	IN	PRTMP_ADAPTER	pAd, 
+	IN	PRTMP_ADAPTER	pAd,
 	IN	PSTRING			arg)
 {
 	LONG ShortSlot;
@@ -265,7 +234,7 @@ INT RT_CfgSetShortSlot(
 }
 
 
-/* 
+/*
     ==========================================================================
     Description:
         Set WEP KEY base on KeyIdx
@@ -274,7 +243,7 @@ INT RT_CfgSetShortSlot(
     ==========================================================================
 */
 INT	RT_CfgSetWepKey(
-	IN	PRTMP_ADAPTER	pAd, 
+	IN	PRTMP_ADAPTER	pAd,
 	IN	PSTRING			keyString,
 	IN	CIPHER_KEY		*pSharedKey,
 	IN	INT				keyIdx)
@@ -295,7 +264,7 @@ INT	RT_CfgSetWepKey(
 			pSharedKey->KeyLen = KeyLen;
 			NdisMoveMemory(pSharedKey->Key, keyString, KeyLen);
 			break;
-			
+
 		case 10: /*wep 40 Hex type*/
 		case 26: /*wep 104 Hex type*/
 			for(i=0; i < KeyLen; i++)
@@ -307,21 +276,21 @@ INT	RT_CfgSetWepKey(
 			pSharedKey->KeyLen = KeyLen/2 ;
 			AtoH(keyString, pSharedKey->Key, pSharedKey->KeyLen);
 			break;
-			
+
 		default: /*Invalid argument */
 			DBGPRINT(RT_DEBUG_TRACE, ("RT_CfgSetWepKey(keyIdx=%d):Invalid argument (arg=%s)\n", keyIdx, keyString));
 			return FALSE;
 	}
 
 	pSharedKey->CipherAlg = ((KeyLen % 5) ? CIPHER_WEP128 : CIPHER_WEP64);
-	DBGPRINT(RT_DEBUG_TRACE, ("RT_CfgSetWepKey:(KeyIdx=%d,type=%s, Alg=%s)\n", 
+	DBGPRINT(RT_DEBUG_TRACE, ("RT_CfgSetWepKey:(KeyIdx=%d,type=%s, Alg=%s)\n",
 						keyIdx, (bKeyIsHex == FALSE ? "Ascii" : "Hex"), CipherName[pSharedKey->CipherAlg]));
 
 	return TRUE;
 }
 
 
-/* 
+/*
     ==========================================================================
     Description:
         Set WPA PSK key
@@ -338,31 +307,32 @@ INT	RT_CfgSetWepKey(
     ==========================================================================
 */
 INT RT_CfgSetWPAPSKKey(
-	IN RTMP_ADAPTER	*pAd, 
+	IN RTMP_ADAPTER	*pAd,
 	IN PSTRING		keyString,
-	IN INT			keyStringLen,
 	IN UCHAR		*pHashStr,
 	IN INT			hashStrLen,
 	OUT PUCHAR		pPMKBuf)
 {
+	int keyLen;
 	UCHAR keyMaterial[40];
 
-	if ((keyStringLen < 8) || (keyStringLen > 64))
+	keyLen = strlen(keyString);
+	if ((keyLen < 8) || (keyLen > 64))
 	{
-		DBGPRINT(RT_DEBUG_TRACE, ("WPAPSK Key length(%d) error, required 8 ~ 64 characters!(keyStr=%s)\n", 
-									keyStringLen, keyString));
+		DBGPRINT(RT_DEBUG_TRACE, ("WPAPSK Key length(%d) error, required 8 ~ 64 characters!(keyStr=%s)\n",
+									keyLen, keyString));
 		return FALSE;
 	}
 
-	NdisZeroMemory(pPMKBuf, 32);
-	if (keyStringLen == 64)
+	memset(pPMKBuf, 0, 32);
+	if (keyLen == 64)
 	{
 	    AtoH(keyString, pPMKBuf, 32);
 	}
 	else
 	{
 	    RtmpPasswordHash(keyString, pHashStr, hashStrLen, keyMaterial);
-	    NdisMoveMemory(pPMKBuf, keyMaterial, 32);		
+	    NdisMoveMemory(pPMKBuf, keyMaterial, 32);
 	}
 
 	return TRUE;
@@ -377,7 +347,7 @@ INT	RT_CfgSetFixedTxPhyMode(
 	if (strcmp(arg, "OFDM") == 0 || strcmp(arg, "ofdm") == 0)
 	{
 		fix_tx_mode = FIXED_TXMODE_OFDM;
-	}	
+	}
 	else if (strcmp(arg, "CCK") == 0 || strcmp(arg, "cck") == 0)
 	{
 	    fix_tx_mode = FIXED_TXMODE_CCK;
@@ -393,24 +363,24 @@ INT	RT_CfgSetFixedTxPhyMode(
 		/* 2 : OFDM*/
 		/* otherwise : HT*/
 		if (value == FIXED_TXMODE_CCK || value == FIXED_TXMODE_OFDM)
-			fix_tx_mode = value;	
+			fix_tx_mode = value;
 		else
 			fix_tx_mode = FIXED_TXMODE_HT;
 	}
 
 	return fix_tx_mode;
-					
-}	
+
+}
 
 INT	RT_CfgSetMacAddress(
 	IN 	PRTMP_ADAPTER 	pAd,
 	IN	PSTRING			arg)
 {
 	INT	i, mac_len;
-	
+
 	/* Mac address acceptable format 01:02:03:04:05:06 length 17 */
 	mac_len = strlen(arg);
-	if(mac_len != 17)  
+	if(mac_len != 17)
 	{
 		DBGPRINT(RT_DEBUG_ERROR, ("%s : invalid length (%d)\n", __FUNCTION__, mac_len));
 		return FALSE;
@@ -426,7 +396,7 @@ INT	RT_CfgSetMacAddress(
 	{
 		AtoH(arg, &pAd->CurrentAddress[i], 1);
 		arg = arg + 3;
-	}	
+	}
 
 	pAd->bLocalAdminMAC = TRUE;
 	return TRUE;
@@ -438,14 +408,14 @@ INT	RT_CfgSetTxMCSProc(
 {
 	INT	Value = simple_strtol(arg, 0, 10);
 	INT	TxMcs;
-	
+
 	if ((Value >= 0 && Value <= 23) || (Value == 32)) /* 3*3*/
 	{
 		TxMcs = Value;
 		*pAutoRate = FALSE;
 	}
 	else
-	{		
+	{
 		TxMcs = MCS_AUTO;
 		*pAutoRate = TRUE;
 	}
@@ -463,7 +433,7 @@ INT	RT_CfgSetAutoFallBack(
 
 	RTMP_IO_READ32(pAd, TX_RTY_CFG, &tx_rty_cfg.word);
 	tx_rty_cfg.field.TxautoFBEnable = (AutoFallBack) ? 1 : 0;
-	RTMP_IO_WRITE32(pAd, TX_RTY_CFG, tx_rty_cfg.word);	
+	RTMP_IO_WRITE32(pAd, TX_RTY_CFG, tx_rty_cfg.word);
 	DBGPRINT(RT_DEBUG_TRACE, ("RT_CfgSetAutoFallBack::(tx_rty_cfg=0x%x)\n", tx_rty_cfg.word));
 	return TRUE;
 }
@@ -500,51 +470,6 @@ INT RtmpIoctl_rt_ioctl_giwname(
 	return NDIS_STATUS_SUCCESS;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void rt2870_early_suspend(struct early_suspend *early)
-{
-        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
-}
-
-static void rt2870_late_resume(struct early_suspend *early)
-{
-        PRTMP_ADAPTER   pAd = container_of(early, RTMP_ADAPTER, early_suspend);
-        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
-
-	printk("pAd->late_resume_flag = %d, VIRTUAL_IF_NUM(pAd) = %d\n", pAd->late_resume_flag, VIRTUAL_IF_NUM(pAd));
-	if ((pAd->late_resume_flag == TRUE) && (VIRTUAL_IF_NUM(pAd) == 0)) {
-		if (VIRTUAL_IF_UP((VOID *)pAd) != 0)
-                {
-			DBGPRINT(RT_DEBUG_ERROR, ("%s, VIRTUAL_IF_UP != 0\n", __func__));
-                }
-		else
-			pAd->late_resume_flag = FALSE;
-	}
-}
-
-void RTRegisterEarlySuspend(PRTMP_ADAPTER    pAd)
-{
-        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
-	pAd->late_resume_flag = TRUE;
-	pAd->early_suspend.suspend = NULL;
-        pAd->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
-        pAd->early_suspend.suspend = rt2870_early_suspend;
-        pAd->early_suspend.resume = rt2870_late_resume;
-        register_early_suspend(&pAd->early_suspend);
-}
-
-void RTUnregisterEarlySuspend(PRTMP_ADAPTER  pAd)
-{
-        DBGPRINT(RT_DEBUG_ERROR, ("%s\n", __func__));
-        pAd->late_resume_flag = FALSE;
-
-        if (pAd->early_suspend.suspend)
-                unregister_early_suspend(&pAd->early_suspend);
-
-        pAd->early_suspend.suspend = NULL;
-        pAd->early_suspend.resume = NULL;
-}
-#endif
 
 INT RTMP_COM_IoctlHandle(
 	IN	VOID					*pAdSrc,
@@ -621,6 +546,11 @@ INT RTMP_COM_IoctlHandle(
 			break;
 #endif /* CONFIG_APSTA_MIXED_SUPPORT */
 #ifdef CONFIG_STA_SUPPORT
+		case CMD_RTPRIV_IOCTL_ADAPTER_SEND_DISSASSOCIATE:
+		/* clear driver state to fRTMP_ADAPTER_SUSPEND */
+			RtmpOSWrielessEventSend(pAd->net_dev, RT_WLAN_EVENT_CGIWAP, -1, NULL, NULL, 0);
+			break;
+
 #ifdef CONFIG_PM
 #ifdef USB_SUPPORT_SELECTIVE_SUSPEND
                 case CMD_RTPRIV_IOCTL_USB_DEV_GET:
@@ -639,6 +569,7 @@ INT RTMP_COM_IoctlHandle(
                 }
                         break;
 
+
 		case CMD_RTPRIV_IOCTL_ADAPTER_SUSPEND_SET:
 		/* set driver state to fRTMP_ADAPTER_SUSPEND */
 			RTMP_SET_FLAG(pAd,fRTMP_ADAPTER_SUSPEND);
@@ -649,37 +580,26 @@ INT RTMP_COM_IoctlHandle(
 			RTMP_CLEAR_FLAG(pAd,fRTMP_ADAPTER_SUSPEND);
 			break;
 
-		case CMD_RTPRIV_IOCTL_ADAPTER_SEND_DISSASSOCIATE:
-		/* clear driver state to fRTMP_ADAPTER_SUSPEND */
-			if (INFRA_ON(pAd) &&
-			(!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)))
-			{
-				MLME_DISASSOC_REQ_STRUCT	DisReq;
-				MLME_QUEUE_ELEM *MsgElem;/* = (MLME_QUEUE_ELEM *) kmalloc(sizeof(MLME_QUEUE_ELEM), MEM_ALLOC_FLAG);*/
-				os_alloc_mem(NULL, (UCHAR **)&MsgElem, sizeof(MLME_QUEUE_ELEM));
-				if (MsgElem)
-				{
-					COPY_MAC_ADDR(DisReq.Addr, pAd->CommonCfg.Bssid);
-					DisReq.Reason =  REASON_DEAUTH_STA_LEAVING;
-					MsgElem->Machine = ASSOC_STATE_MACHINE;
-					MsgElem->MsgType = MT2_MLME_DISASSOC_REQ;
-					MsgElem->MsgLen = sizeof(MLME_DISASSOC_REQ_STRUCT);
-					NdisMoveMemory(MsgElem->Msg, &DisReq, sizeof(MLME_DISASSOC_REQ_STRUCT));
-					/* Prevent to connect AP again in STAMlmePeriodicExec*/
-					pAd->MlmeAux.AutoReconnectSsidLen= 32;
-					NdisZeroMemory(pAd->MlmeAux.AutoReconnectSsid, pAd->MlmeAux.AutoReconnectSsidLen);
-					pAd->Mlme.CntlMachine.CurrState = CNTL_WAIT_OID_DISASSOC;
-					MlmeDisassocReqAction(pAd, MsgElem);/*				kfree(MsgElem);*/
-					os_free_mem(NULL, MsgElem);
-				}
-				/*				RTMPusecDelay(1000);*/
-				RtmpOSWrielessEventSend(pAd->net_dev, RT_WLAN_EVENT_CGIWAP, -1, NULL, NULL, 0);
-			}
-			break;
-			
 		case CMD_RTPRIV_IOCTL_ADAPTER_SUSPEND_TEST:
 		/* test driver state to fRTMP_ADAPTER_SUSPEND */
 			*(UCHAR *)pData = RTMP_TEST_FLAG(pAd,fRTMP_ADAPTER_SUSPEND);
+			break;
+
+		case CMD_RTPRIV_IOCTL_ADAPTER_CPU_SUSPEND_SET:
+		/* set driver state to fRTMP_ADAPTER_CPU_SUSPEND */
+			DBGPRINT(RT_DEBUG_TRACE, ("CMD_RTPRIV_IOCTL_ADAPTER_CPU_SUSPEND_SET\n"));
+			RTMP_SET_FLAG(pAd,fRTMP_ADAPTER_CPU_SUSPEND);
+			break;
+
+		case CMD_RTPRIV_IOCTL_ADAPTER_CPU_SUSPEND_CLEAR:
+		/* clear driver state to fRTMP_ADAPTER_CPU_SUSPEND */
+			DBGPRINT(RT_DEBUG_TRACE, ("CMD_RTPRIV_IOCTL_ADAPTER_CPU_SUSPEND_CLEAR\n"));
+			RTMP_CLEAR_FLAG(pAd,fRTMP_ADAPTER_CPU_SUSPEND);
+			break;
+
+		case CMD_RTPRIV_IOCTL_ADAPTER_CPU_SUSPEND_TEST:
+		/* test driver state to fRTMP_ADAPTER_CPU_SUSPEND */
+			*(UCHAR *)pData = RTMP_TEST_FLAG(pAd,fRTMP_ADAPTER_CPU_SUSPEND);
 			break;
 
 		case CMD_RTPRIV_IOCTL_ADAPTER_IDLE_RADIO_OFF_TEST:
@@ -697,9 +617,8 @@ INT RTMP_COM_IoctlHandle(
 			RT28xxUsbAsicRadioOn(pAd);
 			break;
 
-
 #endif /* USB_SUPPORT_SELECTIVE_SUSPEND */
-#endif /* CONFIG_PM */	
+#endif /* CONFIG_PM */
 
 		case CMD_RTPRIV_IOCTL_AP_BSSID_GET:
 			if (pAd->StaCfg.PortSecured == WPA_802_1X_PORT_NOT_SECURED)
@@ -711,17 +630,8 @@ INT RTMP_COM_IoctlHandle(
 
 		case CMD_RTPRIV_IOCTL_SANITY_CHECK:
 		/* sanity check before IOCTL */
-			if ((!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_IN_USE))
-#ifdef IFUP_IN_PROBE
-			|| (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_RESET_IN_PROGRESS))
-			|| (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS))
-			|| (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST))
-#endif /* IFUP_IN_PROBE */
-			)
-			{
-				if(pData == NULL ||	RT_isLegalCmdBeforeInfUp((PSTRING) pData) == FALSE)
+			if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_IN_USE))
 				return NDIS_STATUS_FAILURE;
-			}
 			break;
 
 		case CMD_RTPRIV_IOCTL_SIOCGIWFREQ:
@@ -772,14 +682,6 @@ INT RTMP_COM_IoctlHandle(
 			}
 		}
 			break;
-
-#ifdef EXT_BUILD_CHANNEL_LIST
-       case CMD_RTPRIV_SET_PRECONFIG_VALUE:
-       /* Set some preconfigured value before interface up*/
-           pAd->CommonCfg.DfsType = MAX_RD_REGION;
-           break;
-#endif /* EXT_BUILD_CHANNEL_LIST */
-
 
 #ifdef RTMP_USB_SUPPORT
 		case CMD_RTPRIV_IOCTL_USB_MORE_FLAG_SET:
@@ -863,7 +765,7 @@ INT RTMP_COM_IoctlHandle(
 			break;
 
 		case CMD_RTPRIV_IOCTL_INF_PPA_EXIT:
-			if (ppa_hook_directpath_register_dev_fn && pAd->PPAEnable==TRUE) 
+			if (ppa_hook_directpath_register_dev_fn && pAd->PPAEnable==TRUE)
 			{
 				UINT status;
 				status=ppa_hook_directpath_register_dev_fn(&pAd->g_if_id, pAd->net_dev, NULL, 0);
@@ -891,6 +793,7 @@ INT RTMP_COM_IoctlHandle(
 			else
 			{
 			}
+			
 		}
 			break;
 
@@ -899,10 +802,12 @@ INT RTMP_COM_IoctlHandle(
 		{
 			RT_CMD_INF_UP_DOWN *pInfConf = (RT_CMD_INF_UP_DOWN *)pData;
 
-			if (VIRTUAL_IF_NUM(pAd) > 0) {
+		
+			if (VIRTUAL_IF_NUM(pAd) > 0)
+				{
 				pInfConf->rt28xx_close(pAd->net_dev);
-				VIRTUAL_IF_DEC(pAd);
-			}
+				VIRTUAL_IF_DEC(pAd);				
+		  }   
 		}
 			break;
 
@@ -917,26 +822,24 @@ INT RTMP_COM_IoctlHandle(
 			break;
 
 		case CMD_RTPRIV_IOCTL_INF_STATS_GET:
-			/* get statistics */
-			{			
-				RT_CMD_STATS *pStats = (RT_CMD_STATS *)pData;
-				pStats->pStats = pAd->stats;
-				if(pAd->OpMode == OPMODE_STA)
-				{
-					pStats->rx_packets = pAd->WlanCounters.ReceivedFragmentCount.QuadPart;
-					pStats->tx_packets = pAd->WlanCounters.TransmittedFragmentCount.QuadPart;
-					pStats->rx_bytes = pAd->RalinkCounters.ReceivedByteCount;
-					pStats->tx_bytes = pAd->RalinkCounters.TransmittedByteCount;
-					pStats->rx_errors = pAd->Counters8023.RxErrors;
-					pStats->tx_errors = pAd->Counters8023.TxErrors;
-					pStats->multicast = pAd->WlanCounters.MulticastReceivedFrameCount.QuadPart;   /* multicast packets received*/
-					pStats->collisions = pAd->Counters8023.OneCollision + pAd->Counters8023.MoreCollisions;  /* Collision packets*/
-					pStats->rx_over_errors = pAd->Counters8023.RxNoBuffer;                   /* receiver ring buff overflow*/
-					pStats->rx_crc_errors = 0;/*pAd->WlanCounters.FCSErrorCount;      recved pkt with crc error*/
-					pStats->rx_frame_errors = pAd->Counters8023.RcvAlignmentErrors;          /* recv'd frame alignment error*/
-					pStats->rx_fifo_errors = pAd->Counters8023.RxNoBuffer;                   /* recv'r fifo overrun*/
-				}
-			}
+		/* get statistics */
+		{
+			RT_CMD_STATS *pStats = (RT_CMD_STATS *)pData;
+
+			pStats->pStats = pAd->stats;
+			pStats->rx_packets = pAd->WlanCounters.ReceivedFragmentCount.QuadPart;
+			pStats->tx_packets = pAd->WlanCounters.TransmittedFragmentCount.QuadPart;
+			pStats->rx_bytes = pAd->RalinkCounters.ReceivedByteCount;
+			pStats->tx_bytes = pAd->RalinkCounters.TransmittedByteCount;
+			pStats->rx_errors = pAd->Counters8023.RxErrors;
+			pStats->tx_errors = pAd->Counters8023.TxErrors;
+		    pStats->multicast = pAd->WlanCounters.MulticastReceivedFrameCount.QuadPart;   /* multicast packets received*/
+		    pStats->collisions = pAd->Counters8023.OneCollision + pAd->Counters8023.MoreCollisions;  /* Collision packets*/
+		    pStats->rx_over_errors = pAd->Counters8023.RxNoBuffer;                   /* receiver ring buff overflow*/
+		    pStats->rx_crc_errors = 0;/*pAd->WlanCounters.FCSErrorCount;      recved pkt with crc error*/
+		    pStats->rx_frame_errors = pAd->Counters8023.RcvAlignmentErrors;          /* recv'd frame alignment error*/
+		    pStats->rx_fifo_errors = pAd->Counters8023.RxNoBuffer;                   /* recv'r fifo overrun*/
+		}
 			break;
 
 		case CMD_RTPRIV_IOCTL_INF_IW_STATUS_GET:
@@ -949,7 +852,7 @@ INT RTMP_COM_IoctlHandle(
 			pStats->level = 0;
 			pStats->noise = 0;
 			pStats->pStats = pAd->iw_stats;
-			
+
 #ifdef CONFIG_STA_SUPPORT
 			if (pAd->OpMode == OPMODE_STA)
 			{
@@ -959,7 +862,7 @@ INT RTMP_COM_IoctlHandle(
 
 			/*check if the interface is down*/
 			if(!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_IN_USE))
-				return NDIS_STATUS_FAILURE;	
+				return NDIS_STATUS_FAILURE;
 
 
 #ifdef CONFIG_STA_SUPPORT
@@ -983,8 +886,8 @@ INT RTMP_COM_IoctlHandle(
 #ifdef CONFIG_STA_SUPPORT
 			pStats->noise = RTMPMaxRssi(pAd, pAd->StaCfg.RssiSample.AvgRssi0,
 										pAd->StaCfg.RssiSample.AvgRssi1,
-										pAd->StaCfg.RssiSample.AvgRssi2) - 
-										RTMPMinSnr(pAd, pAd->StaCfg.RssiSample.AvgSnr0, 
+										pAd->StaCfg.RssiSample.AvgRssi2) -
+										RTMPMinSnr(pAd, pAd->StaCfg.RssiSample.AvgSnr0,
 										pAd->StaCfg.RssiSample.AvgSnr1);
 #endif /* CONFIG_STA_SUPPORT */
 		}
@@ -1008,40 +911,28 @@ INT RTMP_COM_IoctlHandle(
 				return NDIS_STATUS_FAILURE;
 			break;
 
-#ifdef WDS_SUPPORT
-		case CMD_RTPRIV_IOCTL_WDS_INIT:
-			WDS_Init(pAd, pData);
-			break;
 
-		case CMD_RTPRIV_IOCTL_WDS_REMOVE:
-			WDS_Remove(pAd);
+#ifdef RALINK_ATE
+#ifdef RALINK_QA
+		case CMD_RTPRIV_IOCTL_ATE:
+			RtmpDoAte(pAd, wrq, pData);
 			break;
-
-		case CMD_RTPRIV_IOCTL_WDS_STATS_GET:
-			if (Data == INT_WDS)
-			{
-				if (WDS_StatsGet(pAd, pData) != TRUE)
-					return NDIS_STATUS_FAILURE;
-			}
-			else
-				return NDIS_STATUS_FAILURE;
-			break;
-#endif /* WDS_SUPPORT */
-
+#endif /* RALINK_QA */
+#endif /* RALINK_ATE */
 
 		case CMD_RTPRIV_IOCTL_MAC_ADDR_GET:
 
 			RT28xx_EEPROM_READ16(pAd, 0x04, Addr01);
 			RT28xx_EEPROM_READ16(pAd, 0x06, Addr23);
-			RT28xx_EEPROM_READ16(pAd, 0x08, Addr45);			
-			
-			PermanentAddress[0] = (UCHAR)(Addr01 & 0xff);		
+			RT28xx_EEPROM_READ16(pAd, 0x08, Addr45);
+
+			PermanentAddress[0] = (UCHAR)(Addr01 & 0xff);
 			PermanentAddress[1] = (UCHAR)(Addr01 >> 8);
 			PermanentAddress[2] = (UCHAR)(Addr23 & 0xff);
 			PermanentAddress[3] = (UCHAR)(Addr23 >> 8);
 			PermanentAddress[4] = (UCHAR)(Addr45 & 0xff);
-			PermanentAddress[5] = (UCHAR)(Addr45 >> 8);				
-			
+			PermanentAddress[5] = (UCHAR)(Addr45 >> 8);
+
 			for(i=0; i<6; i++)
 				*(UCHAR *)(pData+i) = PermanentAddress[i];
 			break;
@@ -1050,40 +941,97 @@ INT RTMP_COM_IoctlHandle(
 			RtmpIoctl_rt_ioctl_giwname(pAd, pData, 0);
 			break;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-		case CMD_RTPRIV_IOCTL_REGISTER_EARLYSUSPEND:
-			RTRegisterEarlySuspend(pAd);
-			break;
-		case CMD_RTPRIV_IOCTL_UNREGISTER_EARLYSUSPEND:
-			RTUnregisterEarlySuspend(pAd);
-			break;
-		case CMD_RTPRIV_IOCTL_CHECK_EARLYSUSPEND:
-			*(UCHAR *)pData = (UCHAR)pAd->late_resume_flag;
-			break;
-#endif
-
-#ifdef CONFIG_TSO_SUPPORT
-		case CMD_RTPRIV_IOCTL_ADAPTER_TSO_SUPPORT_TEST:
-			*(UCHAR *)pData = pAd->MoreFlags;
-			break;
-#endif /* CONFIG_TSO_SUPPORT */
-	}
-
 #ifdef RT_CFG80211_SUPPORT
-	if ((CMD_RTPRIV_IOCTL_80211_START <= cmd) &&
-		(cmd <= CMD_RTPRIV_IOCTL_80211_END))
-	{
-		Status = CFG80211DRV_IoctlHandle(pAd, wrq, cmd, subcmd, pData, Data);
-	}
+		case CMD_RTPRIV_IOCTL_80211_CB_GET:
+			*(VOID **)pData = (VOID *)(pAd->pCfg80211_CB);
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_CB_SET:
+			pAd->pCfg80211_CB = pData;
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_CHAN_SET:
+			if (CFG80211DRV_OpsSetChannel(pAd, pData) != TRUE)
+				return NDIS_STATUS_FAILURE;
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_VIF_CHG:
+			if (CFG80211DRV_OpsChgVirtualInf(pAd, pData, Data) != TRUE)
+				return NDIS_STATUS_FAILURE;
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_SCAN:
+			CFG80211DRV_OpsScan(pAd);
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_IBSS_JOIN:
+			CFG80211DRV_OpsJoinIbss(pAd, pData);
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_STA_LEAVE:
+			CFG80211DRV_OpsLeave(pAd);
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_STA_GET:
+			if (CFG80211DRV_StaGet(pAd, pData) != TRUE)
+				return NDIS_STATUS_FAILURE;
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_KEY_ADD:
+			CFG80211DRV_KeyAdd(pAd, pData);
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_KEY_DEFAULT_SET:
+#ifdef CONFIG_STA_SUPPORT
+			pAd->StaCfg.DefaultKeyId = Data; /* base 0 */
+#endif /* CONFIG_STA_SUPPORT */
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_CONNECT_TO:
+			CFG80211DRV_Connect(pAd, pData);
+			break;
+
+#ifdef RFKILL_HW_SUPPORT
+		case CMD_RTPRIV_IOCTL_80211_RFKILL:
+		{
+			UINT32 data = 0;
+			BOOLEAN active;
+
+			/* Read GPIO pin2 as Hardware controlled radio state */
+			RTMP_IO_READ32(pAd, GPIO_CTRL_CFG, &data);
+			active = !!(data & 0x04);
+
+			if (!active)
+			{
+				RTMPSetLED(pAd, LED_RADIO_OFF);
+				*(UINT8 *)pData = 0;
+			}
+			else
+				*(UINT8 *)pData = 1;
+		}
+			break;
+#endif /* RFKILL_HW_SUPPORT */
+
+		case CMD_RTPRIV_IOCTL_80211_REG_NOTIFY_TO:
+			CFG80211DRV_RegNotify(pAd, pData);
+			break;
+
+		case CMD_RTPRIV_IOCTL_80211_BANDINFO_GET:
+		{
+			CFG80211_BAND *pBandInfo = (CFG80211_BAND *)pData;
+			CFG80211_BANDINFO_FILL(pAd, pBandInfo);
+		}
+			break;
 #endif /* RT_CFG80211_SUPPORT */
 
-	if (cmd >= CMD_RTPRIV_IOCTL_80211_COM_LATEST_ONE)
-		return NDIS_STATUS_FAILURE;
+		default:
+			return NDIS_STATUS_FAILURE;
+	}
 
 	return Status;
 }
 
-/* 
+/*
     ==========================================================================
     Description:
         Issue a site survey command to driver
@@ -1095,12 +1043,12 @@ INT RTMP_COM_IoctlHandle(
         None
 
     Note:
-        Usage: 
+        Usage:
                1.) iwpriv ra0 set site_survey
     ==========================================================================
 */
 INT Set_SiteSurvey_Proc(
-	IN	PRTMP_ADAPTER	pAd, 
+	IN	PRTMP_ADAPTER	pAd,
 	IN	PSTRING			arg)
 {
 	NDIS_802_11_SSID Ssid;
@@ -1112,7 +1060,7 @@ INT Set_SiteSurvey_Proc(
 	if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_IN_USE))
 	{
 		DBGPRINT(RT_DEBUG_TRACE, ("INFO::Network is down!\n"));
-		return -ENETDOWN;   
+		return -ENETDOWN;
 	}
 
 #ifdef CONFIG_STA_SUPPORT
@@ -1132,7 +1080,7 @@ INT Set_SiteSurvey_Proc(
 #ifdef CONFIG_STA_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
 	{
-		Ssid.SsidLength = 0; 
+		Ssid.SsidLength = 0;
 		if ((arg != NULL) &&
 			(strlen(arg) <= MAX_LEN_OF_SSID))
 		{
@@ -1140,7 +1088,7 @@ INT Set_SiteSurvey_Proc(
 			Ssid.SsidLength = strlen(arg);
 		}
 
-		pAd->StaCfg.bSkipAutoScanConn = TRUE;
+		pAd->StaCfg.bScanReqIsFromWebUI = TRUE;
 		StaSiteSurvey(pAd, &Ssid, SCAN_ACTIVE);
 	}
 #endif // CONFIG_STA_SUPPORT //
@@ -1149,44 +1097,3 @@ INT Set_SiteSurvey_Proc(
 
     return TRUE;
 }
-
-
-INT	Set_Antenna_Proc(
-	IN	PRTMP_ADAPTER	pAd, 
-	IN	PSTRING			arg)
-{
-	ANT_DIVERSITY_TYPE UsedAnt;
-	int i;
-	DBGPRINT(RT_DEBUG_OFF, ("==> Set_Antenna_Proc *******************\n"));
-
-	for (i = 0; i < strlen(arg); i++)
-		if (!isdigit(arg[i]))
-			return -EINVAL;
-
-	UsedAnt = simple_strtol(arg, 0, 10);
-
-	switch (UsedAnt)
-	{
-		/* 2: Fix in the PHY Antenna CON1*/
-		case ANT_FIX_ANT0:
-			AsicSetRxAnt(pAd, 0);
-			DBGPRINT(RT_DEBUG_OFF, ("<== Set_Antenna_Proc(Fix in Ant CON1), (%d,%d)\n", 
-					pAd->RxAnt.Pair1PrimaryRxAnt, pAd->RxAnt.Pair1SecondaryRxAnt));
-			break;
-    	/* 3: Fix in the PHY Antenna CON2*/
-		case ANT_FIX_ANT1:
-			AsicSetRxAnt(pAd, 1);
-			DBGPRINT(RT_DEBUG_OFF, ("<== %s(Fix in Ant CON2), (%d,%d)\n", 
-							__FUNCTION__, pAd->RxAnt.Pair1PrimaryRxAnt, pAd->RxAnt.Pair1SecondaryRxAnt));
-			break;
-		default:
-			DBGPRINT(RT_DEBUG_ERROR, ("<== %s(N/A cmd: %d), (%d,%d)\n", __FUNCTION__, UsedAnt,
-					pAd->RxAnt.Pair1PrimaryRxAnt, pAd->RxAnt.Pair1SecondaryRxAnt));
-			break;
-	}
-	
-	return TRUE;
-}
-			
-
-

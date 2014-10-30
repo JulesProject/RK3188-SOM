@@ -179,6 +179,8 @@ int rtmp_ee_prom_read16(
 	UINT32		x;
 	USHORT		data;
 
+#ifdef RT30xx
+#endif /* RT30xx */
 
 	Offset /= 2;
 	/* reset bits and set EECS*/
@@ -188,8 +190,7 @@ int rtmp_ee_prom_read16(
 	RTMP_IO_WRITE32(pAd, E2PROM_CSR, x);
 
 	/* patch can not access e-Fuse issue*/
-	if (IS_RT2860(pAd))
-	
+	if (!(IS_RT3090(pAd) || IS_RT3572(pAd) || IS_RT3390(pAd) || IS_RT3593(pAd)|| IS_RT5390(pAd)))
 	{
 		/* kick a pulse*/
 		RaiseClock(pAd, &x);
@@ -205,6 +206,8 @@ int rtmp_ee_prom_read16(
 
 	EEpromCleanup(pAd);
 
+#ifdef RT30xx
+#endif /* RT30xx */
 
 	*pValue = data;
 
@@ -219,6 +222,8 @@ int rtmp_ee_prom_write16(
 {
 	UINT32 x;
 
+#ifdef RT30xx
+#endif /* RT30xx */
 
 	Offset /= 2;
 
@@ -231,8 +236,7 @@ int rtmp_ee_prom_write16(
 	RTMP_IO_WRITE32(pAd, E2PROM_CSR, x);
 
 	/* patch can not access e-Fuse issue*/
-	if (IS_RT2860(pAd) 
-		)
+	if (!(IS_RT3090(pAd) || IS_RT3572(pAd) || IS_RT3390(pAd) || IS_RT3593(pAd) || IS_RT5390(pAd)))
 	{
 		/* kick a pulse*/
 		RaiseClock(pAd, &x);
@@ -255,6 +259,8 @@ int rtmp_ee_prom_write16(
 
 	EEpromCleanup(pAd);
 
+#ifdef RT30xx
+#endif /* RT30xx */
 
 	return NDIS_STATUS_SUCCESS;
 	
