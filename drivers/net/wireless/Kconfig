@@ -222,6 +222,7 @@ config RTL8723AU_LW
 	  Help message of RTL8723AU
 
 source "drivers/net/wireless/rtl8712u/Kconfig"
+source "drivers/net/wireless/rtl8192cu/Kconfig"
 
 endif
 

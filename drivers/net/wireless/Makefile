@@ -25,3 +25,4 @@ obj-$(CONFIG_MTK_MT5931)	+= mt5931_kk/
 obj-$(CONFIG_ESP8089)   += esp8089/
 obj-$(CONFIG_RTL8723AU_LW)	+= rtl8723au_lwfinger/
 obj-$(CONFIG_RTL8712U)	+= rtl8712u/
+obj-$(CONFIG_RTL8192CU) += rtl8192cu/
