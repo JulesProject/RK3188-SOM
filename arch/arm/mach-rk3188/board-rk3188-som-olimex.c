@@ -628,6 +628,9 @@ static int rk_fb_io_enable(void)
 struct rk29fb_info lcdc0_screen_info = {
        .prop           = PRMRY,      //extend display device
        .lcd_info  = NULL,
+	   .io_init   = rk_fb_io_init,
+	   .io_disable = rk_fb_io_disable,
+	   .io_enable = rk_fb_io_enable,
        .set_screen_info = set_lcd_info,
 };
 #endif
@@ -636,9 +639,9 @@ struct rk29fb_info lcdc0_screen_info = {
 struct rk29fb_info lcdc1_screen_info = {
 	#if defined(CONFIG_RK_HDMI)
 	.prop		= EXTEND,	//primary display device
-	.io_init   = rk_fb_io_init,
-	.io_disable = rk_fb_io_disable,
-	.io_enable = rk_fb_io_enable,
+//	.io_init   = rk_fb_io_init,
+//	.io_disable = rk_fb_io_disable,
+//	.io_enable = rk_fb_io_enable,
 	.set_screen_info = set_lcd_info,
 	#endif
 };
@@ -1644,9 +1647,9 @@ static struct pmu_info  wm8326_dcdc_info[] = {
 	#else
 	{
 		.name          = "dcdc4",   //vcc_io
-		.min_uv          = 3000000,
-		.max_uv         = 3000000,
-		.suspend_vol  =  2800000,
+		.min_uv          = 3300000,
+		.max_uv         = 3300000,
+		.suspend_vol  =  3000000,
 	},
 	#endif
 };
