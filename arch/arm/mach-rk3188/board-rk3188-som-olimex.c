@@ -639,9 +639,9 @@ struct rk29fb_info lcdc0_screen_info = {
 struct rk29fb_info lcdc1_screen_info = {
 	#if defined(CONFIG_RK_HDMI)
 	.prop		= EXTEND,	//primary display device
-//	.io_init   = rk_fb_io_init,
-//	.io_disable = rk_fb_io_disable,
-//	.io_enable = rk_fb_io_enable,
+	.io_init   = rk_fb_io_init,
+	.io_disable = rk_fb_io_disable,
+	.io_enable = rk_fb_io_enable,
 	.set_screen_info = set_lcd_info,
 	#endif
 };
@@ -1836,12 +1836,12 @@ static struct pmu_info  act8846_dcdc_info[] = {
 };
 static  struct pmu_info  act8846_ldo_info[] = {
 	{
-		.name          = "act_ldo1",   //vdd11
+		.name          = "act_ldo1",   //vdd_1.0
 		.min_uv          = 1000000,
 		.max_uv         = 1000000,
 	},
 	{
-		.name          = "act_ldo2",    //vdd12
+		.name          = "act_ldo2",    //vdd_hdmi
 		.min_uv          = 1200000,
 		.max_uv         = 1200000,
 	},
@@ -1856,7 +1856,7 @@ static  struct pmu_info  act8846_ldo_info[] = {
 		.max_uv         = 3300000,
 	},
 	{
-		.name          = "act_ldo5",   //vcctp
+		.name          = "act_ldo5",   //vdd phy
 		.min_uv          = 3300000,
 		.max_uv         = 3300000,
 	},
