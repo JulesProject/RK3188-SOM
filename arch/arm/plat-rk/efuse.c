@@ -166,7 +166,7 @@ int rk_leakage_val(void)
 				leakage_val = 30000 + 5000 * (leakage_level - 1 - 10);
 			}
 			if (efuse_version == 0x51){
-				leakage_val += 1000 * ((efuse_buf[23] & 0x3) + 2);	// <-- Modified to get 15000 leakage_level
+				leakage_val += 1000 * ((efuse_buf[23] & 0x3) + 1);
 			}
 		} else {
 			return 0;
