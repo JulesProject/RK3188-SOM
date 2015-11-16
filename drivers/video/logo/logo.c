@@ -63,7 +63,7 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		logo = &logo_superh_mono;
 #endif
 	}
-	
+
 	if (depth >= 4) {
 #ifdef CONFIG_LOGO_LINUX_VGA16
 		/* Generic Linux logo */
@@ -78,11 +78,15 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		logo = &logo_superh_vga16;
 #endif
 	}
-	
+
 	if (depth >= 8) {
 #ifdef CONFIG_LOGO_OLIMEX_CLUT224
 		/* Olimex Linux logo */
 		logo = &logo_olimex_clut224;
+#endif
+#ifdef CONFIG_LOGO_JULES_CLUT224
+    /* Jules sleeping eyes */
+    logo = &logo_jules_clut224;
 #endif
 #ifdef CONFIG_LOGO_LINUX_CLUT224
 		/* Generic Linux logo */
@@ -140,7 +144,7 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		if( 1 ==  get_battery_status()){
 			logo = &logo_linux_lowerpower_clut224;
 		}
-#endif 
+#endif
 
 		if (depth >= 24)
 		{
@@ -148,12 +152,12 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 			#ifdef CONFIG_LOGO_LINUX_BMP_SUNSET
 			logo = &logo_sunset_bmp;
 			#endif
-			
+
 			#ifdef CONFIG_LOGO_LINUX_BMP_ANDROID
 			logo = &logo_android_bmp;
 			#endif
-			
-			#endif	
+
+			#endif
 		}
 		else
 		{
@@ -166,6 +170,6 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 	}
 	m_logo = logo;
 	return m_logo;
-	
+
 }
 EXPORT_SYMBOL_GPL(fb_find_logo);
